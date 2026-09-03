@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  CheckOutlined,
   CloseOutlined,
   DeleteOutlined,
   DownOutlined,
+  ExclamationCircleOutlined,
   FolderOutlined,
+  LinkOutlined,
   SearchOutlined,
   SafetyCertificateOutlined,
+  SettingOutlined,
+  StopOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
 import { message } from "antd";
 import { useTranslation } from "react-i18next";
@@ -163,6 +169,7 @@ export default function LocalWorkspaceControl({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const available = isDesktopRuntime() || isLocalRuntime();
+  const permissionLabel = t(`chat.workspace.permission.${permissionMode}`);
 
   useEffect(() => {
     if (!available || !existingTask || !sessionId) return;
@@ -408,7 +415,7 @@ export default function LocalWorkspaceControl({
       <button
         type="button"
         className={`input-bottom-actions-left-item local-workspace-permission-trigger${permissionOpen ? " selected" : ""}`}
-        aria-label={t(`chat.workspace.permission.${permissionMode}`)}
+        aria-label={permissionLabel}
         aria-expanded={permissionOpen}
         disabled={disabled || !selected || selected.status !== "active"}
         onClick={() => {
@@ -417,7 +424,7 @@ export default function LocalWorkspaceControl({
         }}
       >
         <SafetyCertificateOutlined />
-        <span>{t(`chat.workspace.permission.${permissionMode}`)}</span>
+        <span>{permissionLabel}</span>
         <DownOutlined className="local-workspace-arrow" />
       </button>
 
@@ -428,7 +435,9 @@ export default function LocalWorkspaceControl({
               key={mode}
               type="button"
               role="menuitem"
+              aria-label={t(`chat.workspace.permission.${mode}`)}
               disabled={loading}
+              className={mode === permissionMode ? "selected" : undefined}
               onClick={() => {
                 if (mode === "allow_all") {
                   setPermissionOpen(false);
@@ -438,8 +447,14 @@ export default function LocalWorkspaceControl({
                 }
               }}
             >
-              <strong>{t(`chat.workspace.permission.${mode}`)}</strong>
-              <small>{t(`chat.workspace.permission.${mode}Description`)}</small>
+              <span className="local-workspace-permission-icon" aria-hidden="true">
+                {mode === "always_ask" ? <StopOutlined /> : mode === "ask_as_needed" ? <SafetyCertificateOutlined /> : <ExclamationCircleOutlined />}
+              </span>
+              <span className="local-workspace-permission-copy">
+                <strong>{t(`chat.workspace.permission.${mode}`)}</strong>
+                <small>{t(`chat.workspace.permission.${mode}Description`)}</small>
+              </span>
+              {mode === permissionMode ? <CheckOutlined className="local-workspace-permission-check" aria-hidden="true" /> : null}
             </button>
           ))}
         </div>
@@ -590,14 +605,14 @@ export default function LocalWorkspaceControl({
             <button type="button" className="local-workspace-modal-close" aria-label={t("common.close")} onClick={() => setAllowAllOpen(false)}>
               <CloseOutlined />
             </button>
-            <h2>{t("chat.workspace.permission.allowAllTitle")}</h2>
+            <h2><WarningOutlined aria-hidden="true" /> {t("chat.workspace.permission.allowAllTitle")}</h2>
             <p>{t("chat.workspace.permission.allowAllIntro")}</p>
             <ul>
-              <li><strong>{t("chat.workspace.permission.fileRisk")}</strong><span>{t("chat.workspace.permission.fileRiskDescription")}</span></li>
-              <li><strong>{t("chat.workspace.permission.commandRisk")}</strong><span>{t("chat.workspace.permission.commandRiskDescription")}</span></li>
-              <li><strong>{t("chat.workspace.permission.networkRisk")}</strong><span>{t("chat.workspace.permission.networkRiskDescription")}</span></li>
-              <li><strong>{t("chat.workspace.permission.connectedAppRisk")}</strong><span>{t("chat.workspace.permission.connectedAppRiskDescription")}</span></li>
+              <li><FolderOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.fileRisk")}</strong><small>{t("chat.workspace.permission.fileRiskDescription")}</small></span></li>
+              <li><SettingOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.commandRisk")}</strong><small>{t("chat.workspace.permission.commandRiskDescription")}</small></span></li>
+              <li><LinkOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.networkAndConnectedAppsRisk")}</strong><small>{t("chat.workspace.permission.networkAndConnectedAppsRiskDescription")}</small></span></li>
             </ul>
+            <p className="local-workspace-risk-warning"><ExclamationCircleOutlined aria-hidden="true" /> {t("chat.workspace.permission.allowAllWarning")}</p>
             <footer>
               <button type="button" onClick={() => setAllowAllOpen(false)}>{t("chat.workspace.cancel")}</button>
               <button type="button" className="primary" disabled={loading} onClick={() => void applyPermissionMode("allow_all")}>{t("chat.workspace.permission.confirmAllowAll")}</button>

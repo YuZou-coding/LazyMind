@@ -15,16 +15,27 @@ from lazymind.config import config
 
 
 class ToolLimitDecisionCoordinator:
-    def __init__(self) -> None:
+    def __init__(self, *, now=time.monotonic, completion_ttl: float = 600.0) -> None:
         self._active_decisions: dict[str, list[str]] = {}
-        self._completed_decisions: dict[tuple[str, str], str] = {}
+        self._completed_decisions: dict[tuple[str, str], tuple[str, float]] = {}
         self._lock = threading.RLock()
+        self._condition = threading.Condition(self._lock)
+        self._now = now
+        self._completion_ttl = completion_ttl
+
+    def _prune_completed(self) -> None:
+        cutoff = self._now() - self._completion_ttl
+        self._completed_decisions = {
+            key: value for key, value in self._completed_decisions.items()
+            if value[1] >= cutoff
+        }
 
     def _register(self, sid: str, decision_id: str) -> None:
         with self._lock:
             pending = self._active_decisions.setdefault(sid, [])
             if decision_id not in pending:
                 pending.append(decision_id)
+            self._condition.notify_all()
 
     def _unregister(self, sid: str, decision_id: str) -> None:
         with self._lock:
@@ -33,17 +44,30 @@ class ToolLimitDecisionCoordinator:
                 pending.remove(decision_id)
             if not pending:
                 self._active_decisions.pop(sid, None)
+            self._condition.notify_all()
+
+    def _wait_until_active(self, sid: str, decision_id: str) -> None:
+        """Wait for FIFO promotion without consuming the decision TTL."""
+        with self._condition:
+            while True:
+                pending = self._active_decisions.get(sid, [])
+                if pending and pending[0] == decision_id:
+                    return
+                if decision_id not in pending:
+                    raise CancelledError('approval request is no longer pending')
+                self._condition.wait(timeout=0.2)
 
     def submit(self, sid: str, decision_id: str, action: str) -> bool:
         normalized_action = str(action or '').strip().lower()
         if normalized_action not in {'continue', 'summarize', 'allow_once', 'deny'}:
             return False
         with self._lock:
+            self._prune_completed()
             completed = self._completed_decisions.get((sid, decision_id))
             if completed is not None:
                 return (
                     normalized_action in {'allow_once', 'deny'} and
-                    completed == normalized_action
+                    completed[0] == normalized_action
                 )
             pending = self._active_decisions.get(sid, [])
             if not pending or pending[0] != decision_id:
@@ -56,7 +80,8 @@ class ToolLimitDecisionCoordinator:
             pending.pop(0)
             if not pending:
                 self._active_decisions.pop(sid, None)
-            self._completed_decisions[(sid, decision_id)] = normalized_action
+            self._completed_decisions[(sid, decision_id)] = (normalized_action, self._now())
+            self._condition.notify_all()
         return True
 
     def _wait_for_action(self, decision_id: str, timeout: float) -> str:
@@ -101,6 +126,7 @@ class ToolLimitDecisionCoordinator:
         decision_id = uuid.uuid4().hex
         self._register(sid, decision_id)
         try:
+            self._wait_until_active(sid, decision_id)
             lazyllm.LOG.warning(
                 f'ChatAgent reached tool round limit={current_limit}; waiting up to '
                 f'{timeout:g}s for a decision.'

@@ -16,6 +16,18 @@ const mocks = vi.hoisted(() => ({
   localRuntime: false,
 }));
 
+vi.mock("antd", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("antd")>();
+  return {
+    ...actual,
+    message: {
+      success: vi.fn(),
+      error: vi.fn(),
+      destroy: vi.fn(),
+    },
+  };
+});
+
 vi.mock("@/runtime/mode", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/runtime/mode")>()),
   isDesktopRuntime: () => mocks.desktopRuntime,
@@ -56,6 +68,27 @@ vi.mock("react-i18next", () => ({
       "chat.workspace.workspaceChanged": "工作区已切换",
       "chat.workspace.workspaceAuthorized": "工作区已授权",
       "chat.workspace.permissionChanged": "权限已修改",
+      "chat.workspace.permission.menuLabel": "权限模式",
+      "chat.workspace.permission.always_ask": "始终询问",
+      "chat.workspace.permission.always_askDescription": "文件编辑等操作均需确认",
+      "chat.workspace.permission.ask_as_needed": "按需确认",
+      "chat.workspace.permission.ask_as_neededDescription": "仅在风险操作前询问",
+      "chat.workspace.permission.allow_all": "全部允许",
+      "chat.workspace.permission.allow_allDescription": "自动执行可批准操作",
+      "chat.workspace.permission.allowAllTitle": "要开启“全部允许”吗？",
+      "chat.workspace.permission.allowAllIntro": "风险说明",
+      "chat.workspace.permission.fileRisk": "文件风险",
+      "chat.workspace.permission.fileRiskDescription": "文件风险说明",
+      "chat.workspace.permission.commandRisk": "命令风险",
+      "chat.workspace.permission.commandRiskDescription": "命令风险说明",
+      "chat.workspace.permission.networkRisk": "联网风险",
+      "chat.workspace.permission.networkRiskDescription": "联网风险说明",
+      "chat.workspace.permission.connectedAppRisk": "已连接应用风险",
+      "chat.workspace.permission.connectedAppRiskDescription": "应用风险说明",
+      "chat.workspace.permission.networkAndConnectedAppsRisk": "互联网和已连接应用风险",
+      "chat.workspace.permission.networkAndConnectedAppsRiskDescription": "联网和应用风险说明",
+      "chat.workspace.permission.allowAllWarning": "风险警告",
+      "chat.workspace.permission.confirmAllowAll": "确认开启",
       "chat.workspace.revoke": "撤销授权",
       "chat.workspace.revokeTitle": "撤销工作区授权？",
       "chat.workspace.selectionExpired": "文件夹选择已过期，请重新选择。",
@@ -184,6 +217,7 @@ describe("Local/Desktop task workspace composer contract", () => {
   });
 
   afterEach(() => {
+    message.destroy();
     vi.restoreAllMocks();
     Reflect.deleteProperty(window, "lazymindDesktop");
   });
@@ -504,13 +538,13 @@ describe("Local/Desktop task workspace composer contract", () => {
     fireEvent.click(screen.getByRole("button", { name: /按需确认/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: "全部允许" }));
 
-    const dialog = screen.getByRole("dialog", { name: "开启全部允许？" });
+    const dialog = screen.getByRole("dialog", { name: "要开启“全部允许”吗？" });
     expect(dialog).toHaveTextContent("文件风险");
     expect(dialog).toHaveTextContent("命令风险");
-    expect(dialog).toHaveTextContent("联网风险");
-    expect(dialog).toHaveTextContent("已连接应用风险");
+    expect(dialog).toHaveTextContent("互联网和已连接应用风险");
+    expect(dialog.querySelectorAll("li")).toHaveLength(3);
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("dialog", { name: "开启全部允许？" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "要开启“全部允许”吗？" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /按需确认/ })).toBeInTheDocument();
   });
 
@@ -551,7 +585,7 @@ describe("Local/Desktop task workspace composer contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "选择工作区" }));
     fireEvent.click(await screen.findByRole("button", { name: /Old Project/ }));
 
-    expect(screen.getByRole("dialog", { name: "首次使用时需要授权" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "首次使用时需要授权" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "选择工作区" })).toBeInTheDocument();
     expect(success).not.toHaveBeenCalled();
   });

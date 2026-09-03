@@ -1,5 +1,5 @@
 diff --git a/lazyllm/tools/agent/functionCall.py b/lazyllm/tools/agent/functionCall.py
-index 57575f81..b24aecb2 100644
+index 57575f8..e89e625 100644
 --- a/lazyllm/tools/agent/functionCall.py
 +++ b/lazyllm/tools/agent/functionCall.py
 @@ -19,6 +19,7 @@ from lazyllm.tools.sandbox.sandbox_base import LazyLLMSandboxBase, create_sandbo
@@ -27,7 +27,7 @@ index 57575f81..b24aecb2 100644
  def _structured_compact_parts(compacted: Any) -> Optional[tuple]:
      if not isinstance(compacted, tuple) or len(compacted) != 2:
          return None
-@@ -343,6 +354,110 @@ class FunctionCall(ModuleBase):
+@@ -343,6 +354,111 @@ class FunctionCall(ModuleBase):
          self._notify_history_ready(workspace, current_round, compacted_prior)
          return input
  
@@ -73,6 +73,7 @@ index 57575f81..b24aecb2 100644
 +                if auto_allow:
 +                    action = 'allow_once'
 +                else:
++                    tool_limit_decision_coordinator._wait_until_active(sid, decision_id)
 +                    _write_agent_data(
 +                        'tool_limit_pending',
 +                        decision_id=decision_id,
@@ -138,7 +139,7 @@ index 57575f81..b24aecb2 100644
      def _post_action(self, llm_output: Dict[str, Any]):  # noqa: C901
          if not llm_output.get('tool_calls'):
              if (match := re.search(r'Action:\s*Call\s+(\w+)\s+with\s+parameters\s+(\{.*?\})', llm_output['content'])):
-@@ -354,6 +469,7 @@ class FunctionCall(ModuleBase):
+@@ -354,6 +470,7 @@ class FunctionCall(ModuleBase):
          if tool_calls := llm_output.get('tool_calls'):
              if isinstance(tool_calls, list): [item.pop('index', None) for item in tool_calls]
              tool_calls = self._tools_manager.normalize_tool_calls(tool_calls)
@@ -146,7 +147,7 @@ index 57575f81..b24aecb2 100644
              llm_output['tool_calls'] = tool_calls
              if self._stream:
                  _write_agent_data('tool_calls', tool_calls=tool_calls)
-@@ -361,6 +477,7 @@ class FunctionCall(ModuleBase):
+@@ -361,6 +478,7 @@ class FunctionCall(ModuleBase):
                  tool_calls,
                  allowed_tool_names=self._get_visible_tool_names(),
              )
@@ -155,10 +156,10 @@ index 57575f81..b24aecb2 100644
                  _write_agent_data('tool_results',
                                    tool_results=LazyLLMAgentBase._normalize_tool_results(tool_calls,
 diff --git a/lazyllm/tools/agent/shell_tool.py b/lazyllm/tools/agent/shell_tool.py
-index eb521ed8..bafeda65 100644
+index eb521ed..7ad97e9 100644
 --- a/lazyllm/tools/agent/shell_tool.py
 +++ b/lazyllm/tools/agent/shell_tool.py
-@@ -1,34 +1,52 @@
+@@ -1,34 +1,112 @@
 +import json
  import os
  import re
@@ -166,6 +167,7 @@ index eb521ed8..bafeda65 100644
 +import shlex
  import subprocess
 -from typing import Dict, Optional
++import threading
 +import time
 +from typing import Dict, Optional, Sequence
 +from urllib import error as urllib_error
@@ -198,6 +200,65 @@ index eb521ed8..bafeda65 100644
      '>>',
      '>',
  ]
++_OUTPUT_LIMIT_BYTES = 1024 * 1024
++_COMMAND_ENV_ALLOWLIST = {
++    'PATH', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TERM', 'NO_COLOR', 'CI',
++    'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'WINDIR', 'COMSPEC', 'PATHEXT',
++}
++_SECRET_ENV_MARKERS = ('TOKEN', 'SECRET', 'PASSWORD', 'PASSWD', 'API_KEY', 'ACCESS_KEY', 'PRIVATE_KEY')
++_SENSITIVE_FILENAMES = {
++    '.env', '.npmrc', '.pypirc', '.netrc', '.git-credentials', 'credentials.json',
++    'kubeconfig', 'id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519',
++}
++_SENSITIVE_SUFFIXES = ('.pem', '.key', '.p12', '.pfx')
++_READ_ONLY_GIT_SUBCOMMANDS = {
++    'status', 'diff', 'log', 'show', 'rev-parse', 'ls-files', 'ls-tree',
++    'cat-file', 'grep', 'describe', 'name-rev', 'for-each-ref',
++}
++
++
++def _build_command_env(overrides: Optional[Dict[str, str]]) -> Dict[str, str]:
++    """Build the small, non-credential environment visible to workspace commands."""
++    allowed = {name.upper() for name in _COMMAND_ENV_ALLOWLIST}
++    result = {
++        name: value for name, value in os.environ.items()
++        if name.upper() in allowed
++    }
++    for name, value in (overrides or {}).items():
++        normalized = str(name).upper()
++        if normalized not in allowed:
++            raise ToolExecutionError(
++                f'Command environment variable {name!r} is not allowed for workspace execution.'
++            )
++        result[str(name)] = str(value)
++    return result
++
++
++def _redact_command_output(value: str, root: Optional[str]) -> str:
++    result = value or ''
++    if root:
++        normalized_root = os.path.realpath(root).rstrip(os.sep)
++        result = result.replace(normalized_root + os.sep, '.' + os.sep)
++        result = result.replace(normalized_root, '.')
++    for name, secret in os.environ.items():
++        upper = name.upper()
++        if secret and len(secret) >= 6 and any(marker in upper for marker in _SECRET_ENV_MARKERS):
++            result = result.replace(secret, '[REDACTED]')
++    return result
++
++
++def _drain_bounded(pipe, sink: bytearray, state: Dict[str, bool]) -> None:
++    while True:
++        chunk = pipe.read(64 * 1024)
++        if not chunk:
++            break
++        if isinstance(chunk, str):
++            chunk = chunk.encode('utf-8', errors='replace')
++        remaining = _OUTPUT_LIMIT_BYTES - len(sink)
++        if remaining > 0:
++            sink.extend(chunk[:remaining])
++        if len(chunk) > remaining:
++            state['truncated'] = True
  
  
 -def _detect_dangerous_command(cmd: str) -> Optional[str]:
@@ -222,7 +283,7 @@ index eb521ed8..bafeda65 100644
          if re.search(rf'\b{re.escape(token)}\b', lowered):
              return token
      for token in _DANGEROUS_SUBSTRINGS:
-@@ -37,6 +55,186 @@ def _detect_dangerous_command(cmd: str) -> Optional[str]:
+@@ -37,6 +115,332 @@ def _detect_dangerous_command(cmd: str) -> Optional[str]:
      return None
  
  
@@ -232,6 +293,34 @@ index eb521ed8..bafeda65 100644
 +        if re.search(rf'\b{re.escape(token)}\b', lowered):
 +            return token
 +    return None
++
++
++def _detect_sensitive_command_path(argv: Sequence[str]) -> Optional[str]:
++    for token in argv[1:]:
++        if not token or token.startswith('-'):
++            continue
++        name = os.path.basename(token.lstrip('@')).lower()
++        if name in {'.env.example', '.env.sample', '.env.template'}:
++            continue
++        if (
++            name in _SENSITIVE_FILENAMES or name.startswith('.env.') or
++            (name.startswith('service-account') and name.endswith('.json')) or
++            name.endswith(_SENSITIVE_SUFFIXES)
++        ):
++            return token
++    return None
++
++
++def _validate_git_internal_access(argv: Sequence[str]) -> None:
++    for token in argv[1:]:
++        normalized = token.lstrip('@').replace('\\', '/').strip('/')
++        if normalized == '.git' or normalized.startswith('.git/') or '/.git/' in f'/{normalized}/':
++            raise ToolExecutionError('Git internal files are read-only for workspace commands.')
++    if os.path.basename(argv[0]).lower() not in {'git', 'git.exe'}:
++        return
++    subcommand = next((token for token in argv[1:] if token and not token.startswith('-')), '')
++    if subcommand not in _READ_ONLY_GIT_SUBCOMMANDS:
++        raise ToolExecutionError('Git internal state is read-only for workspace commands.')
 +
 +
 +def _task_workspace_root() -> Optional[str]:
@@ -251,6 +340,19 @@ index eb521ed8..bafeda65 100644
 +                roots.append(os.path.realpath(path))
 +    unique_roots = list(dict.fromkeys(roots))
 +    return unique_roots[0] if len(unique_roots) == 1 else None
++
++
++def _task_workspace_source() -> Optional[dict]:
++    try:
++        from lazyllm import globals as lazyllm_globals
++        config = lazyllm_globals.get('agentic_config') or {}
++    except (ImportError, AttributeError):
++        return None
++    sources = [
++        item for item in (config.get('local_fs_sources') or [])
++        if isinstance(item, dict) and item.get('workspace_id')
++    ]
++    return sources[0] if len(sources) == 1 else None
 +
 +
 +def _workspace_permission_mode() -> str:
@@ -371,61 +473,166 @@ index eb521ed8..bafeda65 100644
 +        pass
 +
 +
-+def _run_workspace_process(
++def _run_local_workspace_process(
 +    argv: Sequence[str], cwd: str, env: Optional[Dict[str, str]], timeout: int, root: str,
 +) -> subprocess.CompletedProcess:
 +    popen_kwargs = {
 +        'cwd': cwd,
 +        'env': env,
 +        'shell': False,
-+        'text': True,
++        'text': False,
 +        'stdout': subprocess.PIPE,
 +        'stderr': subprocess.PIPE,
 +    }
 +    if os.name == 'posix':
 +        popen_kwargs['start_new_session'] = True
 +    process = subprocess.Popen(list(argv), **popen_kwargs)
++    stdout_bytes = bytearray()
++    stderr_bytes = bytearray()
++    stdout_state = {'truncated': False}
++    stderr_state = {'truncated': False}
++    readers = [
++        threading.Thread(target=_drain_bounded, args=(process.stdout, stdout_bytes, stdout_state), daemon=True),
++        threading.Thread(target=_drain_bounded, args=(process.stderr, stderr_bytes, stderr_state), daemon=True),
++    ]
++    for reader in readers:
++        reader.start()
 +    deadline = time.monotonic() + timeout
++    next_revalidation = time.monotonic() + 5.0
 +    while True:
 +        remaining = deadline - time.monotonic()
 +        if remaining <= 0:
 +            _stop_process_tree(process)
-+            process.communicate()
++            process.wait()
++            for reader in readers:
++                reader.join()
 +            raise subprocess.TimeoutExpired(list(argv), timeout)
-+        try:
-+            stdout, stderr = process.communicate(timeout=min(5.0, remaining))
-+            return subprocess.CompletedProcess(
-+                list(argv), process.returncode, stdout=stdout, stderr=stderr,
++        returncode = process.poll()
++        if returncode is not None:
++            for reader in readers:
++                reader.join()
++            completed = subprocess.CompletedProcess(
++                list(argv), returncode,
++                stdout=bytes(stdout_bytes).decode('utf-8', errors='replace'),
++                stderr=bytes(stderr_bytes).decode('utf-8', errors='replace'),
 +            )
-+        except subprocess.TimeoutExpired:
++            completed.stdout_truncated = stdout_state['truncated']
++            completed.stderr_truncated = stderr_state['truncated']
++            return completed
++        if time.monotonic() >= next_revalidation:
 +            try:
 +                _revalidate_task_workspace(root)
 +            except ToolExecutionError:
 +                _stop_process_tree(process)
-+                process.communicate()
++                process.wait()
++                for reader in readers:
++                    reader.join()
 +                raise
++            next_revalidation = time.monotonic() + 5.0
++        time.sleep(min(0.1, max(0.01, remaining)))
++
++
++def _run_broker_workspace_process(
++    argv: Sequence[str], cwd: str, env: Optional[Dict[str, str]], timeout: int,
++    root: str, source: dict,
++) -> subprocess.CompletedProcess:
++    try:
++        from lazyllm import globals as lazyllm_globals
++        config = lazyllm_globals.get('agentic_config') or {}
++    except (ImportError, AttributeError) as exc:
++        raise ToolExecutionError('Workspace command context is unavailable') from exc
++    broker_url = os.environ.get('LAZYMIND_LOCAL_WORKSPACE_BROKER_URL', '').strip().rstrip('/')
++    token = os.environ.get('LAZYMIND_LOCAL_WORKSPACE_HOST_TOKEN', '').strip()
++    actor_type = 'sub_agent' if config.get('is_subagent') else str(config.get('actor_type') or 'main_agent')
++    payload = {
++        'workspace_id': str(source.get('workspace_id') or ''),
++        'workspace_version': int(source.get('workspace_version') or 0),
++        'permission_version': int(source.get('workspace_permission_version') or 0),
++        'user_id': str(config.get('user_id') or ''),
++        'conversation_id': str(config.get('conversation_id') or ''),
++        'execution_id': str(config.get('run_id') or config.get('session_id') or ''),
++        'actor_type': actor_type,
++        'actor_id': str(config.get('subagent_task_id') or config.get('agent_type') or actor_type),
++        'argv': list(argv),
++        'cwd': os.path.relpath(cwd, root).replace('\\', '/'),
++        'timeout_seconds': timeout,
++        'env': dict(env or {}),
++    }
++    if not broker_url or not token or not all(
++        payload[key] for key in (
++            'workspace_id', 'workspace_version', 'permission_version', 'user_id',
++            'conversation_id', 'execution_id', 'actor_type', 'actor_id',
++        )
++    ):
++        raise ToolExecutionError('Workspace command broker is unavailable')
++    try:
++        with urllib_request.urlopen(
++            urllib_request.Request(
++                f'{broker_url}/_local/workspace-commands:run',
++                data=json.dumps(payload).encode('utf-8'),
++                headers={
++                    'Content-Type': 'application/json',
++                    'X-LazyMind-Local-Workspace-Token': token,
++                },
++                method='POST',
++            ),
++            timeout=timeout + 35,
++        ) as response:
++            body = json.loads(response.read(3 * 1024 * 1024).decode('utf-8'))
++    except urllib_error.HTTPError as exc:
++        try:
++            detail = json.loads(exc.read(64 * 1024).decode('utf-8'))
++            code = str(detail.get('code') or '')
++        except (ValueError, OSError):
++            code = ''
++        if code == 'LOCAL_COMMAND_TIMEOUT':
++            raise subprocess.TimeoutExpired(list(argv), timeout) from exc
++        raise ToolExecutionError(code or 'Workspace command execution was rejected') from exc
++    except (urllib_error.URLError, OSError, ValueError) as exc:
++        raise ToolExecutionError('Workspace command broker is unavailable') from exc
++    completed = subprocess.CompletedProcess(
++        list(argv), int(body.get('exit_code') or 0),
++        stdout=str(body.get('stdout') or ''), stderr=str(body.get('stderr') or ''),
++    )
++    completed.stdout_truncated = bool(body.get('stdout_truncated'))
++    completed.stderr_truncated = bool(body.get('stderr_truncated'))
++    return completed
++
++
++def _run_workspace_process(
++    argv: Sequence[str], cwd: str, env: Optional[Dict[str, str]], timeout: int, root: str,
++) -> subprocess.CompletedProcess:
++    source = _task_workspace_source()
++    if source:
++        return _run_broker_workspace_process(argv, cwd, env, timeout, root, source)
++    command_env = _build_command_env(env)
++    if os.path.basename(argv[0]).lower() in {'git', 'git.exe'}:
++        command_env.update({
++            'GIT_OPTIONAL_LOCKS': '0', 'GIT_PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0',
++        })
++    return _run_local_workspace_process(argv, cwd, command_env, timeout, root)
 +
 +
  @register('builtin_tools', execute_in_sandbox=False)
  @register('tool', execute_in_sandbox=False)
  def shell_tool(cmd: str, cwd: Optional[str] = None, timeout: int = 30,
-@@ -56,34 +254,77 @@ def shell_tool(cmd: str, cwd: Optional[str] = None, timeout: int = 30,
+@@ -56,34 +460,87 @@ def shell_tool(cmd: str, cwd: Optional[str] = None, timeout: int = 30,
      cmd = cmd.strip()
      if not cmd:
          raise ToolExecutionError('cmd cannot be empty.')
 -    if cwd is not None and not os.path.isdir(cwd):
 -        raise ToolExecutionError(f'cwd not found: {cwd}')
 +    timeout = min(600, max(1, int(timeout)))
-+
+ 
+-    dangerous = _detect_dangerous_command(cmd)
+-    if dangerous and not allow_unsafe:
 +    try:
 +        argv = shlex.split(cmd)
 +    except ValueError as exc:
 +        raise ToolExecutionError(f'Invalid command syntax: {exc}') from exc
 +    if not argv:
 +        raise ToolExecutionError('cmd cannot be empty.')
- 
--    dangerous = _detect_dangerous_command(cmd)
--    if dangerous and not allow_unsafe:
++
 +    workspace_root = _task_workspace_root()
 +    if workspace_root:
 +        _revalidate_task_workspace(workspace_root)
@@ -434,6 +641,7 @@ index eb521ed8..bafeda65 100644
 +            raise ToolExecutionError('Command cwd is outside the authorized workspace')
 +        cwd = effective_cwd
 +        _validate_workspace_command_paths(argv, workspace_root, effective_cwd)
++        _validate_git_internal_access(argv)
 +    elif cwd is not None and not os.path.isdir(cwd):
 +        raise ToolExecutionError('Command cwd does not exist')
 +
@@ -443,17 +651,21 @@ index eb521ed8..bafeda65 100644
 +            f'Command contains dangerous token {denied!r} and is permanently denied.'
 +        )
 +
-+    approval_reason = _detect_approval_command(cmd)
++    approval_reasons = []
++    if command_risk := _detect_approval_command(cmd):
++        approval_reasons.append(command_risk)
++    sensitive_path = _detect_sensitive_command_path(argv) if workspace_root else None
++    if sensitive_path:
++        approval_reasons.append(f'sensitive file {sensitive_path}')
 +    permission_mode = _workspace_permission_mode() if workspace_root else 'ask_as_needed'
-+    if workspace_root and permission_mode == 'always_ask' and not approval_reason:
-+        approval_reason = _detect_workspace_mutation(cmd)
-+    elif not workspace_root and not approval_reason:
-+        approval_reason = _detect_workspace_mutation(cmd)
-+    if approval_reason and permission_mode != 'allow_all' and not allow_unsafe:
++    mutation_risk = _detect_workspace_mutation(cmd)
++    if mutation_risk and (permission_mode == 'always_ask' or not workspace_root):
++        approval_reasons.append(mutation_risk)
++    if approval_reasons and permission_mode != 'allow_all' and not allow_unsafe:
          raise ToolExecutionError.approval_required(
 -            f'Command {cmd!r} in {cwd or os.getcwd()} contains potentially dangerous token '
 -            f'{dangerous!r} and requires approval.'
-+            f'Command contains potentially dangerous token {approval_reason!r} '
++            f'Command contains approvable risks {", ".join(repr(item) for item in approval_reasons)} '
 +            'and requires approval for this operation.'
          )
  
@@ -468,7 +680,9 @@ index eb521ed8..bafeda65 100644
 -            timeout=timeout,
 -        )
 +        if workspace_root:
-+            completed = _run_workspace_process(argv, cwd, env, timeout, workspace_root)
++            completed = _run_workspace_process(
++                argv, cwd, env, timeout, workspace_root,
++            )
 +        else:
 +            completed = subprocess.run(
 +                argv,
@@ -488,12 +702,15 @@ index eb521ed8..bafeda65 100644
 +    stderr = completed.stderr or ''
 +    stdout_bytes = stdout.encode('utf-8', errors='replace')
 +    stderr_bytes = stderr.encode('utf-8', errors='replace')
-+    stdout_truncated = len(stdout_bytes) > 1024 * 1024
-+    stderr_truncated = len(stderr_bytes) > 1024 * 1024
++    stdout_truncated = bool(getattr(completed, 'stdout_truncated', len(stdout_bytes) > _OUTPUT_LIMIT_BYTES))
++    stderr_truncated = bool(getattr(completed, 'stderr_truncated', len(stderr_bytes) > _OUTPUT_LIMIT_BYTES))
 +    if stdout_truncated:
-+        stdout = stdout_bytes[:1024 * 1024].decode('utf-8', errors='replace')
++        stdout = stdout_bytes[:_OUTPUT_LIMIT_BYTES].decode('utf-8', errors='replace')
 +    if stderr_truncated:
-+        stderr = stderr_bytes[:1024 * 1024].decode('utf-8', errors='replace')
++        stderr = stderr_bytes[:_OUTPUT_LIMIT_BYTES].decode('utf-8', errors='replace')
++    if workspace_root:
++        stdout = _redact_command_output(stdout, workspace_root)
++        stderr = _redact_command_output(stderr, workspace_root)
      return {
          'status': 'ok',
 -        'stdout': completed.stdout,
@@ -507,7 +724,7 @@ index eb521ed8..bafeda65 100644
 +        'cwd': '.' if workspace_root else (cwd or os.getcwd()),
      }
 diff --git a/lazyllm/tools/mcp/tool_adaptor.py b/lazyllm/tools/mcp/tool_adaptor.py
-index debe0c28..b9bbbd21 100644
+index debe0c2..b9bbbd2 100644
 --- a/lazyllm/tools/mcp/tool_adaptor.py
 +++ b/lazyllm/tools/mcp/tool_adaptor.py
 @@ -89,6 +89,24 @@ def generate_lazyllm_tool(client, mcp_tool) -> Callable:

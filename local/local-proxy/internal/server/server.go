@@ -24,6 +24,8 @@ func NewServer(cfg config.Config) *http.Server {
 func NewHandler(cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
 	workspaces := newWorkspaceHandler(cfg)
+	workspaceLocks := &workspaceWriteLockHandler{cfg: cfg, broker: newWorkspaceWriteLockBroker()}
+	workspaceCommands := &workspaceCommandHandler{cfg: cfg, limiter: newWorkspaceCommandLimiter()}
 	mux.HandleFunc("/_local/healthz", healthz)
 	mux.HandleFunc("/_local/status", func(w http.ResponseWriter, r *http.Request) {
 		status(w, r, cfg)
@@ -35,6 +37,9 @@ func NewHandler(cfg config.Config) http.Handler {
 	mux.HandleFunc("/_local/workspaces:select", workspaces.selectWorkspace)
 	mux.HandleFunc("/_local/workspaces:authorize", workspaces.authorizeWorkspace)
 	mux.HandleFunc("/_local/workspaces:reauthorize", workspaces.reauthorizeWorkspace)
+	mux.HandleFunc("/_local/workspace-write-locks:acquire", workspaceLocks.acquire)
+	mux.HandleFunc("/_local/workspace-write-locks:release", workspaceLocks.release)
+	mux.HandleFunc("/_local/workspace-commands:run", workspaceCommands.run)
 	mux.Handle("/api/", &apiProxyHandler{
 		routes: cfg.Routes,
 		rbac:   auth.NewRBACAdapter(cfg.Auth.AuthServiceURL, nil),

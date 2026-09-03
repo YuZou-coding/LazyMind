@@ -1,0 +1,23 @@
+# Progress
+
+- Checked out latest `origin/feature/newWorkZone`.
+- Applied LazyLLM workspace-permissions patch.
+- Regenerated Core TypeScript client; stale check passes.
+- Frontend LocalWorkspace contract: 15/15 passed.
+- Python focused permission/runtime tests: 20/20 passed (with LazyLLM logger shutdown warning).
+- Core focused and full requested package tests passed.
+- Local Proxy tests passed.
+- Local Runtime Manager tests passed.
+- Desktop contract tests: 8/8 passed.
+- Frontend affected-file ESLint passed.
+- Updated the permission menu and Allow-all modal to match the supplied visual hierarchy; lint and 15/15 contract tests still pass.
+- Added bounded streaming command output, environment allowlisting, path/secret redaction, sensitive-file multi-risk approval, `.git/**` protection, FIFO activation, and 10-minute idempotency expiry.
+- Expanded focused Python coverage to 34/34 passing and regenerated the portable LazyLLM patch.
+- Added POSIX descriptor-anchored, no-follow reads, directory creation, file creation, and atomic overwrite/append/replace commit paths with authorization/version rechecks.
+- Added TOCTOU regression tests for parent-directory symlink replacement; focused Python coverage is now 38/38.
+- Windows amd64 cross-build tests pass for Local Proxy and Local Runtime Manager, including winfile/winprocess packages.
+- Added a Local Proxy write-lock broker with trusted loopback/token checks, Core identity/version revalidation, one-minute leases, abandoned-lease expiry, per-path cross-task serialization, and one-write-per-task enforcement.
+- Injected the Broker URL into Algorithm services and integrated acquire/release around workspace writes; focused Python coverage is 39/39.
+- Broker now enforces both cross-task path serialization and a one-write-per-task quota, rejects Windows drive paths/traversal, and has HTTP tests proving Core identity revalidation and host-token rejection.
+- Frontend contract tests now mock transient Ant Design messages, eliminating cross-test notification noise; 15/15 remain green.
+- Next: checklist-to-code audit and missing security/resource tests.

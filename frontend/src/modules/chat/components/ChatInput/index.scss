@@ -563,11 +563,13 @@
           box-shadow: 0 12px 34px rgba(57, 75, 104, 0.16);
 
           > button {
-            display: flex;
+            display: grid;
+            grid-template-columns: 28px minmax(0, 1fr) 20px;
+            align-items: center;
             width: 100%;
-            flex-direction: column;
-            gap: 2px;
-            padding: 9px 10px;
+            gap: 10px;
+            min-height: 64px;
+            padding: 10px 12px;
             border: 0;
             border-radius: 7px;
             background: transparent;
@@ -577,9 +579,28 @@
             text-align: left;
 
             &:hover,
-            &:focus-visible {
+            &:focus-visible,
+            &.selected {
               background: #f3f7fd;
               outline: none;
+            }
+
+            .local-workspace-permission-icon {
+              color: #202936;
+              font-size: 22px;
+              text-align: center;
+            }
+
+            .local-workspace-permission-copy {
+              display: flex;
+              min-width: 0;
+              flex-direction: column;
+              gap: 2px;
+            }
+
+            .local-workspace-permission-check {
+              color: #111827;
+              font-size: 16px;
             }
 
             strong {
@@ -1277,22 +1298,44 @@
   }
 
   li {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
     border-radius: 10px;
     background: #f6f8fb;
+
+    > .anticon {
+      color: #6f7b8e;
+      font-size: 18px;
+    }
+
+    > span {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
 
     strong {
       color: #374255;
     }
 
-    span {
+    small {
       color: #7d899b;
       font-size: 13px;
       line-height: 20px;
     }
+  }
+
+  .local-workspace-risk-warning {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 18px;
+    color: #c65b5b;
+    font-size: 12px;
+    line-height: 18px;
   }
 }
 

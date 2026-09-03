@@ -811,6 +811,13 @@ export interface ConversationLocalWorkspaceData {
     'workspace_id'?: string;
 }
 
+export const ConversationLocalWorkspaceDataPermissionModeEnum = {
+    AlwaysAsk: 'always_ask',
+    AskAsNeeded: 'ask_as_needed',
+    AllowAll: 'allow_all'
+} as const;
+
+export type ConversationLocalWorkspaceDataPermissionModeEnum = typeof ConversationLocalWorkspaceDataPermissionModeEnum[keyof typeof ConversationLocalWorkspaceDataPermissionModeEnum];
 export const ConversationLocalWorkspaceDataStatusEnum = {
     Active: 'active',
     Revoked: 'revoked',
@@ -820,14 +827,6 @@ export const ConversationLocalWorkspaceDataStatusEnum = {
 } as const;
 
 export type ConversationLocalWorkspaceDataStatusEnum = typeof ConversationLocalWorkspaceDataStatusEnum[keyof typeof ConversationLocalWorkspaceDataStatusEnum];
-
-export const ConversationLocalWorkspaceDataPermissionModeEnum = {
-    AlwaysAsk: 'always_ask',
-    AskAsNeeded: 'ask_as_needed',
-    AllowAll: 'allow_all'
-} as const;
-
-export type ConversationLocalWorkspaceDataPermissionModeEnum = typeof ConversationLocalWorkspaceDataPermissionModeEnum[keyof typeof ConversationLocalWorkspaceDataPermissionModeEnum];
 
 export interface ConversationLocalWorkspaceResponse {
     'code': number;
@@ -845,39 +844,6 @@ export const ConversationLocalWorkspaceResponseStatusEnum = {
 } as const;
 
 export type ConversationLocalWorkspaceResponseStatusEnum = typeof ConversationLocalWorkspaceResponseStatusEnum[keyof typeof ConversationLocalWorkspaceResponseStatusEnum];
-
-export interface ConversationWorkspacePermissionData {
-    'permission_mode': ConversationWorkspacePermissionDataPermissionModeEnum;
-    'permission_version': number;
-    'workspace_id': string;
-}
-
-export const ConversationWorkspacePermissionDataPermissionModeEnum = {
-    AlwaysAsk: 'always_ask',
-    AskAsNeeded: 'ask_as_needed',
-    AllowAll: 'allow_all'
-} as const;
-
-export type ConversationWorkspacePermissionDataPermissionModeEnum = typeof ConversationWorkspacePermissionDataPermissionModeEnum[keyof typeof ConversationWorkspacePermissionDataPermissionModeEnum];
-
-export interface ConversationWorkspacePermissionRequest {
-    'permission_mode': ConversationWorkspacePermissionRequestPermissionModeEnum;
-    'version': number;
-}
-
-export const ConversationWorkspacePermissionRequestPermissionModeEnum = {
-    AlwaysAsk: 'always_ask',
-    AskAsNeeded: 'ask_as_needed',
-    AllowAll: 'allow_all'
-} as const;
-
-export type ConversationWorkspacePermissionRequestPermissionModeEnum = typeof ConversationWorkspacePermissionRequestPermissionModeEnum[keyof typeof ConversationWorkspacePermissionRequestPermissionModeEnum];
-
-export interface ConversationWorkspacePermissionResponse {
-    'code': number;
-    'data': ConversationWorkspacePermissionData;
-    'message': string;
-}
 
 export interface ConversationPinResponse {
     'conversation_id': string;
@@ -951,6 +917,38 @@ export interface ConversationTrailListResponse {
     'name'?: string;
     'next_page_token'?: string;
     'total_size'?: number;
+}
+export interface ConversationWorkspacePermissionData {
+    'permission_mode': ConversationWorkspacePermissionDataPermissionModeEnum;
+    'permission_version': number;
+    'workspace_id': string;
+}
+
+export const ConversationWorkspacePermissionDataPermissionModeEnum = {
+    AlwaysAsk: 'always_ask',
+    AskAsNeeded: 'ask_as_needed',
+    AllowAll: 'allow_all'
+} as const;
+
+export type ConversationWorkspacePermissionDataPermissionModeEnum = typeof ConversationWorkspacePermissionDataPermissionModeEnum[keyof typeof ConversationWorkspacePermissionDataPermissionModeEnum];
+
+export interface ConversationWorkspacePermissionRequest {
+    'permission_mode': ConversationWorkspacePermissionRequestPermissionModeEnum;
+    'version': number;
+}
+
+export const ConversationWorkspacePermissionRequestPermissionModeEnum = {
+    AlwaysAsk: 'always_ask',
+    AskAsNeeded: 'ask_as_needed',
+    AllowAll: 'allow_all'
+} as const;
+
+export type ConversationWorkspacePermissionRequestPermissionModeEnum = typeof ConversationWorkspacePermissionRequestPermissionModeEnum[keyof typeof ConversationWorkspacePermissionRequestPermissionModeEnum];
+
+export interface ConversationWorkspacePermissionResponse {
+    'code': number;
+    'data': ConversationWorkspacePermissionData;
+    'message': string;
 }
 export interface CoreEmptyResponse {
     'code': number;
@@ -8990,6 +8988,45 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          *
+         * @summary Update conversation workspace permission mode
+         * @param {string} conversationId
+         * @param {ConversationWorkspacePermissionRequest} conversationWorkspacePermissionRequest
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsConversationIdWorkspacePermissionPut: async (conversationId: string, conversationWorkspacePermissionRequest: ConversationWorkspacePermissionRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'conversationId' is not null or undefined
+            assertParamExists('apiCoreConversationsConversationIdWorkspacePermissionPut', 'conversationId', conversationId)
+            // verify required parameter 'conversationWorkspacePermissionRequest' is not null or undefined
+            assertParamExists('apiCoreConversationsConversationIdWorkspacePermissionPut', 'conversationWorkspacePermissionRequest', conversationWorkspacePermissionRequest)
+            const localVarPath = `/api/core/conversations/{conversation_id}:workspace-permission`
+                .replace(`{${"conversation_id"}}`, encodeURIComponent(String(conversationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(conversationWorkspacePermissionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         *
          * @summary PATCH /conversations:editable-block
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -11376,10 +11413,11 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * @summary List authorized local workspaces
          * @param {number} [pageSize]
          * @param {string} [query]
+         * @param {boolean} [includeInactive]
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiCoreLocalWorkspacesGet: async (pageSize?: number, query?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        apiCoreLocalWorkspacesGet: async (pageSize?: number, query?: string, includeInactive?: boolean, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/core/local-workspaces`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -11398,6 +11436,10 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
 
             if (query !== undefined) {
                 localVarQueryParameter['query'] = query;
+            }
+
+            if (includeInactive !== undefined) {
+                localVarQueryParameter['include_inactive'] = includeInactive;
             }
 
             localVarHeaderParameter['Accept'] = 'application/json';
@@ -16424,6 +16466,20 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          *
+         * @summary Update conversation workspace permission mode
+         * @param {string} conversationId
+         * @param {ConversationWorkspacePermissionRequest} conversationWorkspacePermissionRequest
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiCoreConversationsConversationIdWorkspacePermissionPut(conversationId: string, conversationWorkspacePermissionRequest: ConversationWorkspacePermissionRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ConversationWorkspacePermissionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreConversationsConversationIdWorkspacePermissionPut(conversationId, conversationWorkspacePermissionRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreConversationsConversationIdWorkspacePermissionPut']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         *
          * @summary PATCH /conversations:editable-block
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -17307,11 +17363,12 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @summary List authorized local workspaces
          * @param {number} [pageSize]
          * @param {string} [query]
+         * @param {boolean} [includeInactive]
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiCoreLocalWorkspacesGet(pageSize?: number, query?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<LocalWorkspaceListResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreLocalWorkspacesGet(pageSize, query, options);
+        async apiCoreLocalWorkspacesGet(pageSize?: number, query?: string, includeInactive?: boolean, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<LocalWorkspaceListResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreLocalWorkspacesGet(pageSize, query, includeInactive, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreLocalWorkspacesGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -19467,6 +19524,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          *
+         * @summary Update conversation workspace permission mode
+         * @param {DefaultApiApiCoreConversationsConversationIdWorkspacePermissionPutRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsConversationIdWorkspacePermissionPut(requestParameters: DefaultApiApiCoreConversationsConversationIdWorkspacePermissionPutRequest, options?: RawAxiosRequestConfig): AxiosPromise<ConversationWorkspacePermissionResponse> {
+            return localVarFp.apiCoreConversationsConversationIdWorkspacePermissionPut(requestParameters.conversationId, requestParameters.conversationWorkspacePermissionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         *
          * @summary PATCH /conversations:editable-block
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -20110,7 +20177,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @throws {RequiredError}
          */
         apiCoreLocalWorkspacesGet(requestParameters: DefaultApiApiCoreLocalWorkspacesGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<LocalWorkspaceListResponse> {
-            return localVarFp.apiCoreLocalWorkspacesGet(requestParameters.pageSize, requestParameters.query, options).then((request) => request(axios, basePath));
+            return localVarFp.apiCoreLocalWorkspacesGet(requestParameters.pageSize, requestParameters.query, requestParameters.includeInactive, options).then((request) => request(axios, basePath));
         },
         /**
          *
@@ -21634,6 +21701,15 @@ export interface DefaultApiApiCoreConversationsConversationIdWorkspaceGetRequest
 }
 
 /**
+ * Request parameters for apiCoreConversationsConversationIdWorkspacePermissionPut operation in DefaultApi.
+ */
+export interface DefaultApiApiCoreConversationsConversationIdWorkspacePermissionPutRequest {
+    readonly conversationId: string
+
+    readonly conversationWorkspacePermissionRequest: ConversationWorkspacePermissionRequest
+}
+
+/**
  * Request parameters for apiCoreConversationsFeedBackChatHistoryPost operation in DefaultApi.
  */
 export interface DefaultApiApiCoreConversationsFeedBackChatHistoryPostRequest {
@@ -22100,6 +22176,8 @@ export interface DefaultApiApiCoreLocalWorkspacesGetRequest {
     readonly pageSize?: number
 
     readonly query?: string
+
+    readonly includeInactive?: boolean
 }
 
 /**
@@ -23315,6 +23393,17 @@ export class DefaultApi extends BaseAPI {
 
     /**
      *
+     * @summary Update conversation workspace permission mode
+     * @param {DefaultApiApiCoreConversationsConversationIdWorkspacePermissionPutRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiCoreConversationsConversationIdWorkspacePermissionPut(requestParameters: DefaultApiApiCoreConversationsConversationIdWorkspacePermissionPutRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiCoreConversationsConversationIdWorkspacePermissionPut(requestParameters.conversationId, requestParameters.conversationWorkspacePermissionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     *
      * @summary PATCH /conversations:editable-block
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -24023,7 +24112,7 @@ export class DefaultApi extends BaseAPI {
      * @throws {RequiredError}
      */
     public apiCoreLocalWorkspacesGet(requestParameters: DefaultApiApiCoreLocalWorkspacesGetRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiCoreLocalWorkspacesGet(requestParameters.pageSize, requestParameters.query, options).then((request) => request(this.axios, this.basePath));
+        return DefaultApiFp(this.configuration).apiCoreLocalWorkspacesGet(requestParameters.pageSize, requestParameters.query, requestParameters.includeInactive, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
