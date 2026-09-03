@@ -964,6 +964,17 @@ async def _handle_chat_impl(
         'conversation_id': conversation_id,
         'query': query or '',
     }
+    workspace_source = next((
+        source for source in (retrieval.local_fs_sources or [])
+        if isinstance(source, dict) and source.get('workspace_id')
+    ), None)
+    if workspace_source:
+        agentic_config['workspace_permission_mode'] = str(
+            workspace_source.get('workspace_permission_mode') or 'ask_as_needed'
+        )
+        agentic_config['workspace_permission_version'] = int(
+            workspace_source.get('workspace_permission_version') or 1
+        )
     # Inject per-conversation workflow flags from Go (resolved from conversations table).
     # enable_workflow=None means "not set"; default to True so behaviour is unchanged
     # for callers that do not yet pass the field.
@@ -1436,6 +1447,32 @@ async def _handle_chat_impl(
             'its outputs only through the injected Workflow session tools. Do not '
             'create a generic chat artifact or claim that a workspace file updates '
             'the Workflow preview.'
+        )
+    elif workspace_source := next((
+        source for source in (retrieval.local_fs_sources or [])
+        if isinstance(source, dict) and source.get('workspace_id')
+    ), None):
+        permission_mode = str(
+            workspace_source.get('workspace_permission_mode') or 'ask_as_needed'
+        )
+        permission_guidance = {
+            'always_ask': (
+                'Ask for one-time approval before each file edit, workspace mutation, network '
+                'operation, or connected-app operation.'
+            ),
+            'allow_all': (
+                'Run approvable workspace, command, network, and connected-app operations without '
+                'asking again. Permanently forbidden and out-of-workspace operations remain blocked.'
+            ),
+        }.get(permission_mode, (
+            'Normal workspace file operations, including delete, move, and rename, do not need '
+            'additional confirmation. Other risky operations follow the existing approval policy.'
+        ))
+        workspace_policy = (
+            'This Work task is bound to an authorized local workspace. Use only relative paths '
+            'with the local_fs tools for reading, creating, and modifying workspace files. Do not '
+            f'request or disclose its absolute host path. {permission_guidance} Access outside '
+            'the authorized workspace is forbidden.'
         )
     elif _cfg['trusted_local_mode']:
         workspace_policy = (

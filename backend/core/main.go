@@ -154,13 +154,14 @@ func exportOpenAPIArtifacts(openAPIJSON []byte) {
 	}
 
 	outputs := map[string][]byte{
-		filepath.Join(wd, "openapi.json"):                                                   openAPIJSON,
-		filepath.Join(wd, "swagger.json"):                                                   openAPIJSON,
-		filepath.Join(wd, "docs", "swagger.json"):                                           openAPIJSON,
-		filepath.Join(wd, "..", "..", "api", "backend", "core", "swagger.json"):             openAPIJSON,
-		filepath.Join(wd, "..", "..", "api", "backend", "core", "openapi.yml"):              openAPIYAML,
-		filepath.Join(string(filepath.Separator), "openapi-export", "core", "swagger.json"): openAPIJSON,
-		filepath.Join(string(filepath.Separator), "openapi-export", "core", "openapi.yml"):  openAPIYAML,
+		filepath.Join(wd, "openapi.json"):                                                     openAPIJSON,
+		filepath.Join(wd, "swagger.json"):                                                     openAPIJSON,
+		filepath.Join(wd, "docs", "swagger.json"):                                             openAPIJSON,
+		filepath.Join(wd, "..", "..", "api", "backend", "core", "swagger.json"):               openAPIJSON,
+		filepath.Join(wd, "..", "..", "api", "backend", "core", "openapi.yml"):                openAPIYAML,
+		filepath.Join(wd, "..", "..", "frontend", "scripts", "openapi", "specs", "core.yaml"): openAPIYAML,
+		filepath.Join(string(filepath.Separator), "openapi-export", "core", "swagger.json"):   openAPIJSON,
+		filepath.Join(string(filepath.Separator), "openapi-export", "core", "openapi.yml"):    openAPIYAML,
 	}
 	for path, body := range outputs {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

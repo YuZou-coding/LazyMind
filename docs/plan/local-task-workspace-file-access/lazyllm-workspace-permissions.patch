@@ -1,0 +1,537 @@
+diff --git a/lazyllm/tools/agent/functionCall.py b/lazyllm/tools/agent/functionCall.py
+index 57575f81..b24aecb2 100644
+--- a/lazyllm/tools/agent/functionCall.py
++++ b/lazyllm/tools/agent/functionCall.py
+@@ -19,6 +19,7 @@ from lazyllm.tools.sandbox.sandbox_base import LazyLLMSandboxBase, create_sandbo
+ import re
+ import json
+ import inspect
++import uuid
+ 
+ FC_PROMPT = f'''# Tools
+ 
+@@ -51,6 +52,16 @@ class StreamResponse():
+ _ROUND_TOOLS_KEY = '_function_call_round_tools'
+ 
+ 
++def _strip_model_tool_permissions(tool_calls):
++    """A model can request approval, but cannot grant approval to itself."""
++    for tool_call in tool_calls:
++        function = tool_call.get('function') if isinstance(tool_call, dict) else None
++        arguments = function.get('arguments') if isinstance(function, dict) else None
++        if isinstance(arguments, dict) and 'allow_unsafe' in arguments:
++            arguments['allow_unsafe'] = False
++    return tool_calls
++
++
+ def _structured_compact_parts(compacted: Any) -> Optional[tuple]:
+     if not isinstance(compacted, tuple) or len(compacted) != 2:
+         return None
+@@ -343,6 +354,110 @@ class FunctionCall(ModuleBase):
+         self._notify_history_ready(workspace, current_round, compacted_prior)
+         return input
+ 
++    def _resolve_tool_approvals(self, tool_calls, results):
++        resolved = list(results)
++        for index, (tool_call, result) in enumerate(zip(tool_calls, resolved)):
++            if not (
++                isinstance(result, dict) and result.get('ok') is False and
++                result.get('needs_approval') is True
++            ):
++                continue
++            function = tool_call.get('function') or {}
++            tool_name = str(function.get('name') or '')
++            arguments = function.get('arguments')
++            if not isinstance(arguments, dict):
++                continue
++            agentic_config = lazyllm_globals.get('agentic_config') or {}
++            permission_mode = str(agentic_config.get('workspace_permission_mode') or '')
++            if not permission_mode:
++                source = next((
++                    item for item in (agentic_config.get('local_fs_sources') or [])
++                    if isinstance(item, dict) and item.get('workspace_id')
++                ), {})
++                permission_mode = str(
++                    source.get('workspace_permission_mode') or 'ask_as_needed'
++                )
++            auto_allow = permission_mode == 'allow_all'
++            tool_limit_decision_coordinator = None
++            if not auto_allow:
++                try:
++                    from lazymind.chat.engine.agent_runtime.tool_limit_control import (
++                        tool_limit_decision_coordinator,
++                    )
++                except ImportError:
++                    continue
++            decision_id = uuid.uuid4().hex
++            sid = lazyllm_globals._sid
++            if tool_limit_decision_coordinator is not None:
++                tool_limit_decision_coordinator._register(sid, decision_id)
++            try:
++                safe_command = str(arguments.get('command') or arguments.get('cmd') or '')
++                safe_path = str(arguments.get('filepath') or arguments.get('path') or '')
++                if auto_allow:
++                    action = 'allow_once'
++                else:
++                    _write_agent_data(
++                        'tool_limit_pending',
++                        decision_id=decision_id,
++                        approval_kind='tool',
++                        tool_name=tool_name,
++                        command=safe_command,
++                        path=safe_path,
++                        cwd=str(arguments.get('cwd') or '.'),
++                        reason=str(result.get('value') or ''),
++                        used_rounds=0,
++                        round_limit=0,
++                        expanded_max_rounds=0,
++                        timeout_seconds=600,
++                    )
++                    action = tool_limit_decision_coordinator._wait_for_action(decision_id, 600)
++                if action != 'allow_once':
++                    resolved[index] = {
++                        'ok': False,
++                        'value': 'The user denied or did not approve this operation.',
++                    }
++                    continue
++                approved_call = dict(tool_call)
++                approved_function = dict(function)
++                approved_arguments = dict(arguments)
++                sensitive_path = str(
++                    approved_arguments.get('filepath') or approved_arguments.get('path') or ''
++                )
++                prior_sensitive = list(agentic_config.get('approved_sensitive_paths') or [])
++                prior_workspace_writes = list(
++                    agentic_config.get('approved_workspace_write_paths') or []
++                )
++                prior_connected_apps = list(
++                    agentic_config.get('approved_connected_app_tools') or []
++                )
++                if safe_command:
++                    approved_arguments['allow_unsafe'] = True
++                elif sensitive_path:
++                    agentic_config['approved_sensitive_paths'] = prior_sensitive + [sensitive_path]
++                    agentic_config['approved_workspace_write_paths'] = (
++                        prior_workspace_writes + [sensitive_path]
++                    )
++                else:
++                    agentic_config['approved_connected_app_tools'] = (
++                        prior_connected_apps + [tool_name]
++                    )
++                approved_function['arguments'] = approved_arguments
++                approved_call['function'] = approved_function
++                try:
++                    resolved[index] = self._tools_manager(
++                        [approved_call], allowed_tool_names=self._get_visible_tool_names(),
++                    )[0]
++                finally:
++                    if sensitive_path and not safe_command:
++                        agentic_config['approved_sensitive_paths'] = prior_sensitive
++                        agentic_config['approved_workspace_write_paths'] = prior_workspace_writes
++                    if not sensitive_path and not safe_command:
++                        agentic_config['approved_connected_app_tools'] = prior_connected_apps
++            finally:
++                if tool_limit_decision_coordinator is not None:
++                    tool_limit_decision_coordinator._unregister(sid, decision_id)
++        return resolved
++
+     def _post_action(self, llm_output: Dict[str, Any]):  # noqa: C901
+         if not llm_output.get('tool_calls'):
+             if (match := re.search(r'Action:\s*Call\s+(\w+)\s+with\s+parameters\s+(\{.*?\})', llm_output['content'])):
+@@ -354,6 +469,7 @@ class FunctionCall(ModuleBase):
+         if tool_calls := llm_output.get('tool_calls'):
+             if isinstance(tool_calls, list): [item.pop('index', None) for item in tool_calls]
+             tool_calls = self._tools_manager.normalize_tool_calls(tool_calls)
++            tool_calls = _strip_model_tool_permissions(tool_calls)
+             llm_output['tool_calls'] = tool_calls
+             if self._stream:
+                 _write_agent_data('tool_calls', tool_calls=tool_calls)
+@@ -361,6 +477,7 @@ class FunctionCall(ModuleBase):
+                 tool_calls,
+                 allowed_tool_names=self._get_visible_tool_names(),
+             )
++            tool_calls_results = self._resolve_tool_approvals(tool_calls, tool_calls_results)
+             if self._stream:
+                 _write_agent_data('tool_results',
+                                   tool_results=LazyLLMAgentBase._normalize_tool_results(tool_calls,
+diff --git a/lazyllm/tools/agent/shell_tool.py b/lazyllm/tools/agent/shell_tool.py
+index eb521ed8..bafeda65 100644
+--- a/lazyllm/tools/agent/shell_tool.py
++++ b/lazyllm/tools/agent/shell_tool.py
+@@ -1,34 +1,52 @@
++import json
+ import os
+ import re
++import signal
++import shlex
+ import subprocess
+-from typing import Dict, Optional
++import time
++from typing import Dict, Optional, Sequence
++from urllib import error as urllib_error
++from urllib import request as urllib_request
+ 
+ from .toolsManager import register
+ from .toolError import ToolExecutionError
+ 
+-_DANGEROUS_WORD_TOKENS = [
+-    'rm', 'sudo', 'chmod', 'chown', 'mkfs', 'dd', 'shutdown', 'reboot', 'poweroff',
+-    'kill', 'killall', 'pkill', 'apt', 'yum', 'dnf', 'brew', 'pip', 'conda', 'curl',
+-    'wget', 'scp', 'ssh',
++_PERMANENTLY_DENIED_WORD_TOKENS = [
++    'sudo', 'su', 'chmod', 'chown', 'mkfs', 'dd', 'shutdown', 'reboot',
++    'poweroff', 'kill', 'killall', 'pkill', 'scp', 'ssh',
+ ]
+-_DANGEROUS_PHRASES = [
++_PERMANENTLY_DENIED_PHRASES = [
+     'git reset --hard',
+     'git clean -fd',
+ ]
++_APPROVAL_WORD_TOKENS = [
++    'apt', 'apt-get', 'yum', 'dnf', 'brew', 'pip', 'pip3', 'conda', 'curl',
++    'wget', 'npm', 'pnpm', 'yarn',
++]
++_WORKSPACE_MUTATION_TOKENS = [
++    'rm', 'mv', 'rename', 'del', 'move', 'remove-item', 'move-item', 'rename-item',
++]
+ _DANGEROUS_SUBSTRINGS = [
+     '>>',
+     '>',
+ ]
+ 
+ 
+-def _detect_dangerous_command(cmd: str) -> Optional[str]:
++def _detect_permanently_denied_command(cmd: str) -> Optional[str]:
+     lowered = cmd.lower()
+-    if re.search(r'\brm\s+-rf\b', lowered):
+-        return 'rm -rf'
+-    for token in _DANGEROUS_PHRASES:
++    for token in _PERMANENTLY_DENIED_PHRASES:
+         if token in lowered:
+             return token
+-    for token in _DANGEROUS_WORD_TOKENS:
++    for token in _PERMANENTLY_DENIED_WORD_TOKENS:
++        if re.search(rf'\b{re.escape(token)}\b', lowered):
++            return token
++    return None
++
++
++def _detect_approval_command(cmd: str) -> Optional[str]:
++    lowered = cmd.lower()
++    for token in _APPROVAL_WORD_TOKENS:
+         if re.search(rf'\b{re.escape(token)}\b', lowered):
+             return token
+     for token in _DANGEROUS_SUBSTRINGS:
+@@ -37,6 +55,186 @@ def _detect_dangerous_command(cmd: str) -> Optional[str]:
+     return None
+ 
+ 
++def _detect_workspace_mutation(cmd: str) -> Optional[str]:
++    lowered = cmd.lower()
++    for token in _WORKSPACE_MUTATION_TOKENS:
++        if re.search(rf'\b{re.escape(token)}\b', lowered):
++            return token
++    return None
++
++
++def _task_workspace_root() -> Optional[str]:
++    """Return the single task-workspace root carried by the current request."""
++    try:
++        from lazyllm import globals as lazyllm_globals
++        config = lazyllm_globals.get('agentic_config') or {}
++    except (ImportError, AttributeError):
++        return None
++    sources = config.get('local_fs_sources') or []
++    roots = []
++    for source in sources:
++        if not isinstance(source, dict) or not source.get('workspace_id'):
++            continue
++        for path in source.get('paths') or []:
++            if isinstance(path, str) and path.strip():
++                roots.append(os.path.realpath(path))
++    unique_roots = list(dict.fromkeys(roots))
++    return unique_roots[0] if len(unique_roots) == 1 else None
++
++
++def _workspace_permission_mode() -> str:
++    try:
++        from lazyllm import globals as lazyllm_globals
++        config = lazyllm_globals.get('agentic_config') or {}
++    except (ImportError, AttributeError):
++        return 'ask_as_needed'
++    mode = str(config.get('workspace_permission_mode') or '').strip()
++    if not mode:
++        source = next((
++            item for item in (config.get('local_fs_sources') or [])
++            if isinstance(item, dict) and item.get('workspace_id')
++        ), {})
++        mode = str(source.get('workspace_permission_mode') or '').strip()
++    return mode if mode in {'always_ask', 'ask_as_needed', 'allow_all'} else 'ask_as_needed'
++
++
++def _revalidate_task_workspace(root: str) -> None:
++    """Fail closed if the task binding was revoked or changed."""
++    try:
++        from lazyllm import globals as lazyllm_globals
++        config = lazyllm_globals.get('agentic_config') or {}
++    except (ImportError, AttributeError) as exc:
++        raise ToolExecutionError('Workspace authorization context is unavailable') from exc
++    source = next((
++        item for item in (config.get('local_fs_sources') or [])
++        if isinstance(item, dict) and item.get('workspace_id')
++    ), None)
++    if not source:
++        return
++    core_url = str(
++        os.environ.get('LAZYMIND_CORE_API_URL') or
++        os.environ.get('LAZYMIND_CORE_SERVICE_URL') or ''
++    ).strip().rstrip('/')
++    token = os.environ.get('LAZYMIND_LOCAL_WORKSPACE_HOST_TOKEN', '').strip()
++    user_id = str(config.get('user_id') or '').strip()
++    conversation_id = str(config.get('conversation_id') or '').strip()
++    execution_id = str(config.get('run_id') or config.get('session_id') or '').strip()
++    actor_type = 'sub_agent' if config.get('is_subagent') else 'main_agent'
++    actor_id = str(
++        config.get('subagent_task_id') or config.get('agent_type') or actor_type
++    ).strip()
++    if not all((core_url, token, user_id, conversation_id, execution_id, actor_id)):
++        raise ToolExecutionError('Workspace authorization context is unavailable')
++    payload = json.dumps({
++        'conversation_id': conversation_id,
++        'execution_id': execution_id,
++        'actor_type': actor_type,
++        'actor_id': actor_id,
++        'operation_class': 'command',
++    }).encode('utf-8')
++    request = urllib_request.Request(
++        f'{core_url}/internal/local-workspaces:resolve',
++        data=payload,
++        headers={
++            'Content-Type': 'application/json',
++            'X-User-Id': user_id,
++            'X-LazyMind-Local-Workspace-Token': token,
++        },
++        method='POST',
++    )
++    try:
++        with urllib_request.urlopen(request, timeout=5) as response:
++            body = json.loads(response.read(64 * 1024).decode('utf-8'))
++    except (urllib_error.URLError, OSError, ValueError) as exc:
++        raise ToolExecutionError('Workspace authorization is no longer active') from exc
++    data = body.get('data') if isinstance(body, dict) else None
++    if not isinstance(data, dict) or (
++        str(data.get('workspace_id') or '') != str(source.get('workspace_id') or '') or
++        int(data.get('workspace_version') or 0) != int(source.get('workspace_version') or 0) or
++        str(data.get('permission_mode') or '') != str(
++            source.get('workspace_permission_mode') or 'ask_as_needed'
++        ) or
++        int(data.get('permission_version') or 0) != int(
++            source.get('workspace_permission_version') or 0
++        ) or
++        os.path.realpath(str(data.get('root_path') or '')) != root
++    ):
++        raise ToolExecutionError('Workspace authorization changed; start a new operation')
++
++
++def _is_inside(root: str, path: str) -> bool:
++    try:
++        return os.path.commonpath([root, os.path.realpath(path)]) == root
++    except ValueError:
++        return False
++
++
++def _validate_workspace_command_paths(argv: Sequence[str], root: str, cwd: str) -> None:
++    """Reject explicit path arguments that escape the task workspace.
++
++    This is intentionally applied before an approval request is emitted: a user
++    can approve a risky operation inside the workspace, but cannot approve an
++    operation outside the authorization boundary.
++    """
++    for token in argv[1:]:
++        if not token or token == '--' or token.startswith('-') or '://' in token:
++            continue
++        looks_like_path = os.path.isabs(token) or token in ('.', '..') or any(
++            separator in token for separator in ('/', '\\')
++        )
++        if not looks_like_path:
++            continue
++        if os.path.isabs(token) or not _is_inside(root, os.path.join(cwd, token)):
++            raise ToolExecutionError(
++                'Command path argument is outside the authorized workspace and is permanently denied.'
++            )
++
++
++def _stop_process_tree(process: subprocess.Popen) -> None:
++    try:
++        if os.name == 'posix':
++            os.killpg(process.pid, signal.SIGKILL)
++        else:
++            process.kill()
++    except (OSError, ProcessLookupError):
++        pass
++
++
++def _run_workspace_process(
++    argv: Sequence[str], cwd: str, env: Optional[Dict[str, str]], timeout: int, root: str,
++) -> subprocess.CompletedProcess:
++    popen_kwargs = {
++        'cwd': cwd,
++        'env': env,
++        'shell': False,
++        'text': True,
++        'stdout': subprocess.PIPE,
++        'stderr': subprocess.PIPE,
++    }
++    if os.name == 'posix':
++        popen_kwargs['start_new_session'] = True
++    process = subprocess.Popen(list(argv), **popen_kwargs)
++    deadline = time.monotonic() + timeout
++    while True:
++        remaining = deadline - time.monotonic()
++        if remaining <= 0:
++            _stop_process_tree(process)
++            process.communicate()
++            raise subprocess.TimeoutExpired(list(argv), timeout)
++        try:
++            stdout, stderr = process.communicate(timeout=min(5.0, remaining))
++            return subprocess.CompletedProcess(
++                list(argv), process.returncode, stdout=stdout, stderr=stderr,
++            )
++        except subprocess.TimeoutExpired:
++            try:
++                _revalidate_task_workspace(root)
++            except ToolExecutionError:
++                _stop_process_tree(process)
++                process.communicate()
++                raise
++
++
+ @register('builtin_tools', execute_in_sandbox=False)
+ @register('tool', execute_in_sandbox=False)
+ def shell_tool(cmd: str, cwd: Optional[str] = None, timeout: int = 30,
+@@ -56,34 +254,77 @@ def shell_tool(cmd: str, cwd: Optional[str] = None, timeout: int = 30,
+     cmd = cmd.strip()
+     if not cmd:
+         raise ToolExecutionError('cmd cannot be empty.')
+-    if cwd is not None and not os.path.isdir(cwd):
+-        raise ToolExecutionError(f'cwd not found: {cwd}')
++    timeout = min(600, max(1, int(timeout)))
++
++    try:
++        argv = shlex.split(cmd)
++    except ValueError as exc:
++        raise ToolExecutionError(f'Invalid command syntax: {exc}') from exc
++    if not argv:
++        raise ToolExecutionError('cmd cannot be empty.')
+ 
+-    dangerous = _detect_dangerous_command(cmd)
+-    if dangerous and not allow_unsafe:
++    workspace_root = _task_workspace_root()
++    if workspace_root:
++        _revalidate_task_workspace(workspace_root)
++        effective_cwd = os.path.realpath(cwd or workspace_root)
++        if not _is_inside(workspace_root, effective_cwd) or not os.path.isdir(effective_cwd):
++            raise ToolExecutionError('Command cwd is outside the authorized workspace')
++        cwd = effective_cwd
++        _validate_workspace_command_paths(argv, workspace_root, effective_cwd)
++    elif cwd is not None and not os.path.isdir(cwd):
++        raise ToolExecutionError('Command cwd does not exist')
++
++    denied = _detect_permanently_denied_command(cmd)
++    if denied:
++        raise ToolExecutionError(
++            f'Command contains dangerous token {denied!r} and is permanently denied.'
++        )
++
++    approval_reason = _detect_approval_command(cmd)
++    permission_mode = _workspace_permission_mode() if workspace_root else 'ask_as_needed'
++    if workspace_root and permission_mode == 'always_ask' and not approval_reason:
++        approval_reason = _detect_workspace_mutation(cmd)
++    elif not workspace_root and not approval_reason:
++        approval_reason = _detect_workspace_mutation(cmd)
++    if approval_reason and permission_mode != 'allow_all' and not allow_unsafe:
+         raise ToolExecutionError.approval_required(
+-            f'Command {cmd!r} in {cwd or os.getcwd()} contains potentially dangerous token '
+-            f'{dangerous!r} and requires approval.'
++            f'Command contains potentially dangerous token {approval_reason!r} '
++            'and requires approval for this operation.'
+         )
+ 
+     try:
+-        completed = subprocess.run(
+-            cmd,
+-            cwd=cwd,
+-            env=env,
+-            shell=True,
+-            text=True,
+-            capture_output=True,
+-            timeout=timeout,
+-        )
++        if workspace_root:
++            completed = _run_workspace_process(argv, cwd, env, timeout, workspace_root)
++        else:
++            completed = subprocess.run(
++                argv,
++                cwd=cwd,
++                env=env,
++                shell=False,
++                text=True,
++                capture_output=True,
++                timeout=timeout,
++            )
+     except subprocess.TimeoutExpired as exc:
+         raise ToolExecutionError(
+-            f'Shell command {cmd!r} in {cwd or os.getcwd()} timed out after {timeout} seconds.',
++            f'Shell command timed out after {timeout} seconds.',
+         ) from exc
++    stdout = completed.stdout or ''
++    stderr = completed.stderr or ''
++    stdout_bytes = stdout.encode('utf-8', errors='replace')
++    stderr_bytes = stderr.encode('utf-8', errors='replace')
++    stdout_truncated = len(stdout_bytes) > 1024 * 1024
++    stderr_truncated = len(stderr_bytes) > 1024 * 1024
++    if stdout_truncated:
++        stdout = stdout_bytes[:1024 * 1024].decode('utf-8', errors='replace')
++    if stderr_truncated:
++        stderr = stderr_bytes[:1024 * 1024].decode('utf-8', errors='replace')
+     return {
+         'status': 'ok',
+-        'stdout': completed.stdout,
+-        'stderr': completed.stderr,
++        'stdout': stdout,
++        'stderr': stderr,
++        'stdout_truncated': stdout_truncated,
++        'stderr_truncated': stderr_truncated,
+         'exit_code': completed.returncode,
+-        'cwd': cwd or os.getcwd(),
++        'cwd': '.' if workspace_root else (cwd or os.getcwd()),
+     }
+diff --git a/lazyllm/tools/mcp/tool_adaptor.py b/lazyllm/tools/mcp/tool_adaptor.py
+index debe0c28..b9bbbd21 100644
+--- a/lazyllm/tools/mcp/tool_adaptor.py
++++ b/lazyllm/tools/mcp/tool_adaptor.py
+@@ -89,6 +89,24 @@ def generate_lazyllm_tool(client, mcp_tool) -> Callable:
+ 
+     # Define the function
+     def dynamic_lazyllm_func(**kwargs):
++        try:
++            import lazyllm
++            from lazyllm.tools.agent import ToolExecutionError
++            config = lazyllm.globals.get('agentic_config') or {}
++            mode = str(config.get('workspace_permission_mode') or '').strip()
++            if not mode:
++                source = next((
++                    item for item in (config.get('local_fs_sources') or [])
++                    if isinstance(item, dict) and item.get('workspace_id')
++                ), {})
++                mode = str(source.get('workspace_permission_mode') or 'ask_as_needed')
++            approved = config.get('approved_connected_app_tools') or []
++            if mode == 'always_ask' and tool_name not in approved:
++                raise ToolExecutionError.approval_required(
++                    f'Connected app operation {tool_name!r} requires approval for this operation.'
++                )
++        except ImportError:
++            pass
+         missing_params: Set[str] = set(required) - set(kwargs.keys())
+         if missing_params:
+             LOG.warning(f'Missing required parameters: {missing_params}')

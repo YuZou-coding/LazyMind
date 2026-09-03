@@ -67,6 +67,7 @@ export interface ChatContainerProps {
   ) => void;
   initialConversationSettings?: import("@/modules/chat/utils/request").ConversationRuntimeSettings;
   hasWorkflowSession?: boolean;
+  runInBackground?: boolean;
   conversationTrailEnabled?: boolean;
   showThinkingDepth?: boolean;
   showSkillDeposit?: boolean;
@@ -144,6 +145,12 @@ export interface ChatMessage {
     round_limit: number;
     expanded_max_rounds: number;
     timeout_seconds: number;
+    approval_kind?: string;
+    tool_name?: string;
+    command?: string;
+    path?: string;
+    cwd?: string;
+    reason?: string;
   };
   resolved_tool_limit_decision_id?: string;
   mentions?: ChatMention[];

@@ -801,6 +801,8 @@ components:
                     type: string
                 is_pinned:
                     type: boolean
+                is_task_conv:
+                    type: boolean
                 models:
                     items:
                         type: string
@@ -847,6 +849,67 @@ components:
                 total_size:
                     format: int64
                     type: integer
+            type: object
+        ConversationLocalWorkspaceBindingRequest:
+            properties:
+                workspace_id:
+                    type: string
+                workspace_permission_mode:
+                    enum:
+                        - always_ask
+                        - ask_as_needed
+                        - allow_all
+                    type: string
+            type: object
+        ConversationLocalWorkspaceData:
+            properties:
+                affected_task_count:
+                    format: int64
+                    type: integer
+                permission_mode:
+                    enum:
+                        - always_ask
+                        - ask_as_needed
+                        - allow_all
+                    type: string
+                permission_version:
+                    format: int64
+                    type: integer
+                status:
+                    enum:
+                        - active
+                        - revoked
+                        - path_unavailable
+                        - missing
+                        - none
+                    type: string
+                workspace:
+                    $ref: '#/components/schemas/LocalWorkspace'
+                workspace_id:
+                    type: string
+            required:
+                - status
+            type: object
+        ConversationLocalWorkspaceResponse:
+            properties:
+                code:
+                    type: integer
+                data:
+                    $ref: '#/components/schemas/ConversationLocalWorkspaceData'
+                message:
+                    type: string
+                status:
+                    enum:
+                        - active
+                        - revoked
+                        - path_unavailable
+                        - missing
+                        - none
+                    type: string
+            required:
+                - code
+                - message
+                - data
             type: object
         ConversationPinResponse:
             properties:
@@ -993,6 +1056,52 @@ components:
                 total_size:
                     format: int64
                     type: integer
+            type: object
+        ConversationWorkspacePermissionData:
+            properties:
+                permission_mode:
+                    enum:
+                        - always_ask
+                        - ask_as_needed
+                        - allow_all
+                    type: string
+                permission_version:
+                    format: int64
+                    type: integer
+                workspace_id:
+                    type: string
+            required:
+                - workspace_id
+                - permission_mode
+                - permission_version
+            type: object
+        ConversationWorkspacePermissionRequest:
+            properties:
+                permission_mode:
+                    enum:
+                        - always_ask
+                        - ask_as_needed
+                        - allow_all
+                    type: string
+                version:
+                    format: int64
+                    type: integer
+            required:
+                - permission_mode
+                - version
+            type: object
+        ConversationWorkspacePermissionResponse:
+            properties:
+                code:
+                    type: integer
+                data:
+                    $ref: '#/components/schemas/ConversationWorkspacePermissionData'
+                message:
+                    type: string
+            required:
+                - code
+                - message
+                - data
             type: object
         CoreEmptyResponse:
             properties:
@@ -2793,6 +2902,126 @@ components:
                 - next_page_token
                 - total_size
             type: object
+        LocalWorkspace:
+            properties:
+                affected_task_count:
+                    format: int64
+                    type: integer
+                authorized_at:
+                    format: date-time
+                    type: string
+                display_name:
+                    type: string
+                last_used_at:
+                    format: date-time
+                    type: string
+                path:
+                    type: string
+                read_policy:
+                    enum:
+                        - allow
+                    type: string
+                revoked_at:
+                    format: date-time
+                    type: string
+                source:
+                    enum:
+                        - local
+                        - desktop
+                    type: string
+                status:
+                    enum:
+                        - active
+                        - revoked
+                        - path_unavailable
+                    type: string
+                version:
+                    format: int64
+                    type: integer
+                workspace_id:
+                    type: string
+                write_policy:
+                    enum:
+                        - allow
+                    type: string
+            required:
+                - workspace_id
+                - display_name
+                - path
+                - status
+                - version
+                - read_policy
+                - write_policy
+                - affected_task_count
+                - authorized_at
+                - last_used_at
+            type: object
+        LocalWorkspaceListData:
+            properties:
+                items:
+                    items:
+                        $ref: '#/components/schemas/LocalWorkspace'
+                    type: array
+            required:
+                - items
+            type: object
+        LocalWorkspaceListResponse:
+            properties:
+                code:
+                    type: integer
+                data:
+                    $ref: '#/components/schemas/LocalWorkspaceListData'
+                message:
+                    type: string
+            required:
+                - code
+                - message
+                - data
+            type: object
+        LocalWorkspaceRevokeData:
+            properties:
+                affected_task_count:
+                    format: int64
+                    type: integer
+                status:
+                    enum:
+                        - revoked
+                    type: string
+                version:
+                    format: int64
+                    type: integer
+                workspace_id:
+                    type: string
+            required:
+                - workspace_id
+                - status
+                - version
+                - affected_task_count
+            type: object
+        LocalWorkspaceRevokeRequest:
+            properties:
+                version:
+                    format: int64
+                    type: integer
+            required:
+                - version
+            type: object
+        LocalWorkspaceRevokeResponse:
+            properties:
+                affected_task_count:
+                    format: int64
+                    type: integer
+                code:
+                    type: integer
+                data:
+                    $ref: '#/components/schemas/LocalWorkspaceRevokeData'
+                message:
+                    type: string
+            required:
+                - code
+                - message
+                - data
+            type: object
         MergeAndAddWordRequest:
             properties:
                 group_ids:
@@ -2980,6 +3209,8 @@ components:
             type: object
         PromptPolishRequest:
             properties:
+                allow_empty:
+                    type: boolean
                 content:
                     type: string
                 user_instruct:
@@ -3377,9 +3608,9 @@ components:
                     type: string
                 provider:
                     type: string
-                source_url:
-                    type: string
                 result_summary:
+                    type: string
+                source_url:
                     type: string
                 tags:
                     items:
@@ -3408,9 +3639,8 @@ components:
                 - output_label
                 - output_type
                 - provider
-                - source_url
                 - result_summary
-                - tasks
+                - source_url
                 - title
                 - type
             type: object
@@ -3467,13 +3697,13 @@ components:
                     items:
                         type: string
                     type: array
-                image_asset:
-                    type: string
-                image_url:
-                    type: string
                 html_asset:
                     type: string
                 html_url:
+                    type: string
+                image_asset:
+                    type: string
+                image_url:
                     type: string
                 product_report:
                     $ref: '#/components/schemas/ShowcaseCaseProductReport'
@@ -8714,6 +8944,18 @@ paths:
                                 $ref: '#/components/schemas/ConversationPinResponse'
                     description: Conversation pinned
             summary: Pin a conversation
+    /api/core/conversations/{conversation_id}:promote:
+        post:
+            parameters:
+                - in: path
+                  name: conversation_id
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+            summary: POST /conversations/{conversation_id}:promote
     /api/core/conversations/{conversation_id}:purge:
         delete:
             parameters:
@@ -8822,6 +9064,44 @@ paths:
                                 $ref: '#/components/schemas/ConversationPinResponse'
                     description: Conversation unpinned
             summary: Unpin a conversation
+    /api/core/conversations/{conversation_id}:workspace:
+        get:
+            parameters:
+                - in: path
+                  name: conversation_id
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ConversationLocalWorkspaceResponse'
+                    description: Conversation local workspace
+            summary: Get conversation local workspace
+    /api/core/conversations/{conversation_id}:workspace-permission:
+        put:
+            parameters:
+                - in: path
+                  name: conversation_id
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ConversationWorkspacePermissionRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ConversationWorkspacePermissionResponse'
+                    description: Updated conversation workspace permission
+            summary: Update conversation workspace permission mode
     /api/core/conversations/{name}:
         delete:
             parameters:
@@ -9025,6 +9305,12 @@ paths:
                 "200":
                     description: OK
             summary: POST /conversations:chat
+    /api/core/conversations:editable-block:
+        patch:
+            responses:
+                "200":
+                    description: OK
+            summary: PATCH /conversations:editable-block
     /api/core/conversations:estimateContextUsage:
         post:
             responses:
@@ -9349,10 +9635,15 @@ paths:
                   required: false
                   schema:
                     type: integer
-                - in: query
+                - description: Sort datasets by latest_updated (default), most_used (per current user usage), or recent_used (latest of last used and content update).
+                  in: query
                   name: order_by
                   required: false
                   schema:
+                    enum:
+                        - latest_updated
+                        - most_used
+                        - recent_used
                     type: string
                 - in: query
                   name: keyword
@@ -11634,6 +11925,54 @@ paths:
                 "200":
                     description: OK
             summary: GET /list_kb_groups
+    /api/core/local-workspaces:
+        get:
+            parameters:
+                - in: query
+                  name: page_size
+                  required: false
+                  schema:
+                    type: integer
+                - in: query
+                  name: query
+                  required: false
+                  schema:
+                    type: string
+                - in: query
+                  name: include_inactive
+                  required: false
+                  schema:
+                    type: boolean
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LocalWorkspaceListResponse'
+                    description: Authorized local workspaces
+            summary: List authorized local workspaces
+    /api/core/local-workspaces/{workspace_id}:revoke:
+        post:
+            parameters:
+                - in: path
+                  name: workspace_id
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/LocalWorkspaceRevokeRequest'
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LocalWorkspaceRevokeResponse'
+                    description: Revoked local workspace
+            summary: Revoke a local workspace
     /api/core/mcp_servers:
         get:
             parameters:

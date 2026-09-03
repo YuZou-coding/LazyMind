@@ -200,6 +200,12 @@ type ToolLimitPendingEvent struct {
 	RoundLimit        int     `json:"round_limit"`
 	ExpandedMaxRounds int     `json:"expanded_max_rounds"`
 	TimeoutSeconds    float64 `json:"timeout_seconds"`
+	ApprovalKind      string  `json:"approval_kind,omitempty"`
+	ToolName          string  `json:"tool_name,omitempty"`
+	Command           string  `json:"command,omitempty"`
+	Path              string  `json:"path,omitempty"`
+	CWD               string  `json:"cwd,omitempty"`
+	Reason            string  `json:"reason,omitempty"`
 }
 
 // IntentUpdatedEvent is emitted by intentwrite (via _write_agent_data) on the main SSE stream.

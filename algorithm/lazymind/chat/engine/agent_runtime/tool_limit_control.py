@@ -16,31 +16,47 @@ from lazymind.config import config
 
 class ToolLimitDecisionCoordinator:
     def __init__(self) -> None:
-        self._active_decisions: dict[str, str] = {}
+        self._active_decisions: dict[str, list[str]] = {}
+        self._completed_decisions: dict[tuple[str, str], str] = {}
         self._lock = threading.RLock()
 
     def _register(self, sid: str, decision_id: str) -> None:
         with self._lock:
-            self._active_decisions[sid] = decision_id
+            pending = self._active_decisions.setdefault(sid, [])
+            if decision_id not in pending:
+                pending.append(decision_id)
 
     def _unregister(self, sid: str, decision_id: str) -> None:
         with self._lock:
-            if self._active_decisions.get(sid) == decision_id:
+            pending = self._active_decisions.get(sid, [])
+            if decision_id in pending:
+                pending.remove(decision_id)
+            if not pending:
                 self._active_decisions.pop(sid, None)
 
     def submit(self, sid: str, decision_id: str, action: str) -> bool:
         normalized_action = str(action or '').strip().lower()
-        if normalized_action not in {'continue', 'summarize'}:
+        if normalized_action not in {'continue', 'summarize', 'allow_once', 'deny'}:
             return False
         with self._lock:
-            if self._active_decisions.get(sid) != decision_id:
+            completed = self._completed_decisions.get((sid, decision_id))
+            if completed is not None:
+                return (
+                    normalized_action in {'allow_once', 'deny'} and
+                    completed == normalized_action
+                )
+            pending = self._active_decisions.get(sid, [])
+            if not pending or pending[0] != decision_id:
                 return False
             lazyllm.globals._init_sid(sid=sid)
             FileSystemQueue(klass='agent_control').enqueue(json.dumps({
                 'decision_id': decision_id,
                 'action': normalized_action,
             }))
-            self._active_decisions.pop(sid, None)
+            pending.pop(0)
+            if not pending:
+                self._active_decisions.pop(sid, None)
+            self._completed_decisions[(sid, decision_id)] = normalized_action
         return True
 
     def _wait_for_action(self, decision_id: str, timeout: float) -> str:
@@ -54,7 +70,7 @@ class ToolLimitDecisionCoordinator:
                 if payload.get('decision_id') != decision_id:
                     continue
                 action = str(payload.get('action') or '').strip().lower()
-                if action in {'continue', 'summarize'}:
+                if action in {'continue', 'summarize', 'allow_once', 'deny'}:
                     return action
             for raw in FileSystemQueue(klass='cancel').dequeue() or []:
                 try:

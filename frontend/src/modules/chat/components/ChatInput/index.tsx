@@ -56,6 +56,8 @@ import MentionEditor, {
   type MentionEditorRef,
 } from "./MentionEditor";
 import ContextUsageButton from "./ContextUsageButton";
+import LocalWorkspaceControl from "./LocalWorkspaceControl";
+import type { WorkspacePermissionMode } from "./types";
 import { buildCitedMessageText } from "../newChatContainer/utils/citeMessage";
 
 // Stable empty array reference — must NOT be inline `?? []` in a zustand selector
@@ -625,6 +627,9 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
       string | null
     >(null);
     const { thinkingDepth, setThinkingDepth } = useChatThinkStore();
+    const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>();
+    const [workspacePermissionMode, setWorkspacePermissionMode] =
+      useState<WorkspacePermissionMode>("ask_as_needed");
     const effectiveThinkingDepth = fixedThinkingDepth ?? thinkingDepth;
     const { setNewMessage } = useChatNewMessageStore();
     const { t } = useTranslation();
@@ -718,7 +723,7 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
         });
         return [];
       });
-      fileListRef.current?.clear();
+      fileListRef.current?.clear?.();
       setTimeout(() => onHeightChange?.(), 0);
     }, [onHeightChange]);
 
@@ -827,7 +832,7 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
 
     useEffect(() => {
       const checkUploadStatus = () => {
-        const uploadingCount = fileListRef.current?.getUploadingCount() || 0;
+		const uploadingCount = fileListRef.current?.getUploadingCount?.() || 0;
         setIsUploading(uploadingCount > 0);
       };
 
@@ -1017,6 +1022,10 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
         files: fileListRef.current?.getFiles(),
         create_time: new Date().toISOString(),
         ...(runInBackground ? { run_in_background: true } : {}),
+        ...(runInBackground && selectedWorkspaceId ? { workspace_id: selectedWorkspaceId } : {}),
+        ...(runInBackground && selectedWorkspaceId
+          ? { workspace_permission_mode: workspacePermissionMode }
+          : {}),
       };
 
       if (!isChatContent) {
@@ -1408,6 +1417,29 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
                       />
                     </div>
                   </div>
+                  {runInBackground ? (
+                    <LocalWorkspaceControl
+                      sessionId={sessionId}
+                      disabled={disabled || isStreaming}
+                      onSelectedWorkspaceChange={setSelectedWorkspaceId}
+                      onPermissionModeChange={setWorkspacePermissionMode}
+                    />
+                  ) : null}
+                  {showThinkingDepth && (
+                    <Select
+                      aria-label={t("chat.thinkingDepth")}
+                      className="chat-thinking-depth-select"
+                      size="small"
+                      variant="borderless"
+                      value={effectiveThinkingDepth}
+                      disabled={disabled || isStreaming || Boolean(fixedThinkingDepth)}
+                      onChange={setThinkingDepth}
+                      options={THINKING_DEPTH_VALUES.map((value) => ({
+                        value,
+                        label: t(THINKING_DEPTH_LABEL_KEYS[value]),
+                      }))}
+                    />
+                  )}
                   {showcaseSelection ? (
                     <div className="chat-showcase-selection" data-testid="showcase-selection">
                       <ShowcaseSelectButton
@@ -1428,21 +1460,6 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
                       ) : null}
                     </div>
                   ) : null}
-                  {showThinkingDepth && (
-                    <Select
-                      aria-label={t("chat.thinkingDepth")}
-                      className="chat-thinking-depth-select"
-                      size="small"
-                      variant="borderless"
-                      value={effectiveThinkingDepth}
-                      disabled={disabled || isStreaming || Boolean(fixedThinkingDepth)}
-                      onChange={setThinkingDepth}
-                      options={THINKING_DEPTH_VALUES.map((value) => ({
-                        value,
-                        label: t(THINKING_DEPTH_LABEL_KEYS[value]),
-                      }))}
-                    />
-                  )}
                   {/* <ModelSelector sessionId={sessionId} disabled={isStreaming} /> */}
                   {showHistoryButton && openHistory && (
                     <div

@@ -26,14 +26,17 @@ class SessionEnvClearResponse(BaseModel):
 
 
 @router.post('/api/agent/tool-limit-decision', response_model=AgentControlResponse,
-             summary='Continue or summarize a ChatAgent after its tool-round limit')
+             summary='Resolve a pending Agent control or one-time approval decision')
 async def tool_limit_decision(req: ToolLimitDecisionRequest) -> AgentControlResponse:
     from lazymind.chat.engine.agent_runtime.tool_limit_control import tool_limit_decision_coordinator
     from lazymind.chat.service.chat_service import _active_sessions
 
     action = req.action.strip().lower()
-    if action not in {'continue', 'summarize'}:
-        raise HTTPException(status_code=400, detail='action must be continue or summarize')
+    if action not in {'continue', 'summarize', 'allow_once', 'deny'}:
+        raise HTTPException(
+            status_code=400,
+            detail='action must be continue, summarize, allow_once, or deny',
+        )
     sid = _active_sessions.get(req.conversation_id.strip())
     if not sid or not tool_limit_decision_coordinator.submit(sid, req.decision_id, action):
         return AgentControlResponse(ok=False)

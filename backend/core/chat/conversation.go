@@ -109,6 +109,10 @@ func ChatConversations(w http.ResponseWriter, r *http.Request) {
 		common.ReplyErr(w, "invalid json", http.StatusBadRequest)
 		return
 	}
+	if appErr := validateWorkspaceRequestMode(raw); appErr != nil {
+		common.ReplyAppErr(w, appErr)
+		return
+	}
 	basicChatOnly, _ := raw["basic_chat_only"].(bool)
 	if basicChatOnly {
 		if runInBackground, _ := raw["run_in_background"].(bool); runInBackground {
@@ -261,10 +265,14 @@ func ChatConversations(w http.ResponseWriter, r *http.Request) {
 	runInBackground, _ := raw["run_in_background"].(bool)
 	requestedThinkingDepth, _ := raw["thinking_depth"].(string)
 
-	conversationRecord, seq, err := ensureConversation(r.Context(), db, convID, displayName, searchConfigJSON, modelsJSON, userID, userName, runInBackground, requestedThinkingDepth, initialConversationSettings)
+	conversationRecord, seq, err := ensureConversationWithWorkspace(r.Context(), db, convID, displayName, searchConfigJSON, modelsJSON, userID, userName, runInBackground, requestedThinkingDepth, initialConversationSettings, raw)
 	if err != nil {
 		if errors.Is(err, errConversationInTrash) {
 			common.ReplyErr(w, err.Error(), http.StatusConflict)
+			return
+		}
+		if appErr, ok := err.(*common.AppError); ok {
+			common.ReplyAppErr(w, appErr)
 			return
 		}
 		common.ReplyErr(w, fmt.Sprintf("%s: %v", "failed to ensure conversation", err), http.StatusInternalServerError)
@@ -1085,13 +1093,14 @@ func DecideToolLimit(w http.ResponseWriter, r *http.Request) {
 		Action     string `json:"action"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		common.ReplyErr(w, fmt.Sprintf("invalid body: %v", err), http.StatusBadRequest)
+		common.ReplyErr(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 	convID := conversationIDFromPath(r)
 	decisionID := strings.TrimSpace(body.DecisionID)
 	action := strings.ToLower(strings.TrimSpace(body.Action))
-	if convID == "" || decisionID == "" || (action != "continue" && action != "summarize") {
+	if convID == "" || decisionID == "" ||
+		(action != "continue" && action != "summarize" && action != "allow_once" && action != "deny") {
 		common.ReplyErr(w, "conversation_id, decision_id and a valid action are required", http.StatusBadRequest)
 		return
 	}
@@ -1101,11 +1110,11 @@ func DecideToolLimit(w http.ResponseWriter, r *http.Request) {
 	}
 	var conv orm.Conversation
 	if err := store.DB().Where("id = ? AND create_user_id = ? AND deleted_at IS NULL", convID, userID).First(&conv).Error; err != nil {
-		common.ReplyErr(w, fmt.Sprintf("conversation not found: %v", err), http.StatusNotFound)
+		common.ReplyErr(w, "conversation not found", http.StatusNotFound)
 		return
 	}
 	if err := notifyToolLimitDecision(convID, decisionID, action); err != nil {
-		common.ReplyErr(w, fmt.Sprintf("failed to deliver tool-limit decision: %v", err), http.StatusConflict)
+		common.ReplyErr(w, "tool-limit decision is no longer active", http.StatusConflict)
 		return
 	}
 	common.ReplyOK(w, nil)
@@ -1561,6 +1570,7 @@ func GetConversationDetail(w http.ResponseWriter, r *http.Request) {
 			"pinned_at":             c.PinnedAt,
 			"is_pinned":             c.PinnedAt != nil,
 			"models":                models,
+			"is_task_conv":          c.IsTaskConv,
 			"enable_workflow":       c.EnableWorkflow,
 			"workflow_mode":         c.WorkflowMode,
 			"enable_subagent":       c.EnableSubagent,

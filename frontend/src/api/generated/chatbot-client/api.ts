@@ -1027,6 +1027,12 @@ export interface Conversation {
    */
   models?: Array<string>;
   /**
+   * Whether this conversation was created from the Work (new task) entry.
+   * @type {boolean}
+   * @memberof Conversation
+   */
+  is_task_conv?: boolean;
+  /**
    * Whether workflow tooling is enabled for this conversation.
    * @type {boolean}
    * @memberof Conversation

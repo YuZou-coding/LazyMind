@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"lazymind/core/common"
+	"lazymind/core/common/orm"
+	"lazymind/core/localworkspace"
 	"net/http"
 	"net/url"
 	"sort"
@@ -57,6 +59,41 @@ func applyLocalFSPathsForChat(ctx context.Context, r *http.Request, db *gorm.DB,
 	sources, err := loadLocalFSSourcesForChat(ctx, r, userID)
 	if err != nil {
 		return err
+	}
+	conversationID, _ := reqBody["conversation_id"].(string)
+	conversationID = strings.TrimSpace(conversationID)
+	if localworkspace.Enabled() && conversationID != "" {
+		var conversation orm.Conversation
+		if err := db.WithContext(ctx).
+			Where("id = ? AND create_user_id = ?", conversationID, userID).
+			First(&conversation).Error; err == nil && conversation.IsTaskConv {
+			var binding orm.ConversationWorkspaceBinding
+			if err := db.WithContext(ctx).Where("conversation_id = ?", conversationID).
+				First(&binding).Error; err == nil {
+				permissionMode, permissionVersion := localworkspace.NormalizePermission(
+					binding.PermissionMode, binding.PermissionVersion,
+				)
+				workspace, resolveErr := localworkspace.ResolveActiveForBinding(
+					ctx, db, userID, binding.WorkspaceID,
+				)
+				if resolveErr != nil {
+					return resolveErr
+				}
+				if err := localworkspace.ValidateCurrentDirectory(ctx, db, workspace); err != nil {
+					return err
+				}
+				sources = append(sources, map[string]any{
+					"source_id":                    "local-workspace:" + workspace.ID,
+					"workspace_id":                 workspace.ID,
+					"workspace_version":            workspace.Version,
+					"workspace_permission_mode":    permissionMode,
+					"workspace_permission_version": permissionVersion,
+					"paths":                        []string{workspace.CanonicalPath},
+					"file_extensions":              []string{"*"},
+					"relative_paths":               true,
+				})
+			}
+		}
 	}
 	reqBody["local_fs_sources"] = sources
 	return nil

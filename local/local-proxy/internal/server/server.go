@@ -23,6 +23,7 @@ func NewServer(cfg config.Config) *http.Server {
 
 func NewHandler(cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
+	workspaces := newWorkspaceHandler(cfg)
 	mux.HandleFunc("/_local/healthz", healthz)
 	mux.HandleFunc("/_local/status", func(w http.ResponseWriter, r *http.Request) {
 		status(w, r, cfg)
@@ -31,6 +32,9 @@ func NewHandler(cfg config.Config) http.Handler {
 		cfg:     cfg,
 		manager: auth.NewAdminSessionManager(cfg.Auth.AuthServiceURL, nil),
 	})
+	mux.HandleFunc("/_local/workspaces:select", workspaces.selectWorkspace)
+	mux.HandleFunc("/_local/workspaces:authorize", workspaces.authorizeWorkspace)
+	mux.HandleFunc("/_local/workspaces:reauthorize", workspaces.reauthorizeWorkspace)
 	mux.Handle("/api/", &apiProxyHandler{
 		routes: cfg.Routes,
 		rbac:   auth.NewRBACAdapter(cfg.Auth.AuthServiceURL, nil),

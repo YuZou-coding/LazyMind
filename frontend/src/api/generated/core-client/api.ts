@@ -745,6 +745,7 @@ export interface ConversationItem {
     'create_time'?: string;
     'display_name'?: string;
     'is_pinned'?: boolean;
+    'is_task_conv'?: boolean;
     'models'?: Array<string>;
     'name'?: string;
     'pinned_at'?: string | null;
@@ -788,6 +789,96 @@ export interface ConversationListResponse {
     'next_page_token'?: string;
     'total_size'?: number;
 }
+export interface ConversationLocalWorkspaceBindingRequest {
+    'workspace_id'?: string;
+    'workspace_permission_mode'?: ConversationLocalWorkspaceBindingRequestWorkspacePermissionModeEnum;
+}
+
+export const ConversationLocalWorkspaceBindingRequestWorkspacePermissionModeEnum = {
+    AlwaysAsk: 'always_ask',
+    AskAsNeeded: 'ask_as_needed',
+    AllowAll: 'allow_all'
+} as const;
+
+export type ConversationLocalWorkspaceBindingRequestWorkspacePermissionModeEnum = typeof ConversationLocalWorkspaceBindingRequestWorkspacePermissionModeEnum[keyof typeof ConversationLocalWorkspaceBindingRequestWorkspacePermissionModeEnum];
+
+export interface ConversationLocalWorkspaceData {
+    'affected_task_count'?: number;
+    'permission_mode'?: ConversationLocalWorkspaceDataPermissionModeEnum;
+    'permission_version'?: number;
+    'status': ConversationLocalWorkspaceDataStatusEnum;
+    'workspace'?: LocalWorkspace;
+    'workspace_id'?: string;
+}
+
+export const ConversationLocalWorkspaceDataStatusEnum = {
+    Active: 'active',
+    Revoked: 'revoked',
+    PathUnavailable: 'path_unavailable',
+    Missing: 'missing',
+    None: 'none'
+} as const;
+
+export type ConversationLocalWorkspaceDataStatusEnum = typeof ConversationLocalWorkspaceDataStatusEnum[keyof typeof ConversationLocalWorkspaceDataStatusEnum];
+
+export const ConversationLocalWorkspaceDataPermissionModeEnum = {
+    AlwaysAsk: 'always_ask',
+    AskAsNeeded: 'ask_as_needed',
+    AllowAll: 'allow_all'
+} as const;
+
+export type ConversationLocalWorkspaceDataPermissionModeEnum = typeof ConversationLocalWorkspaceDataPermissionModeEnum[keyof typeof ConversationLocalWorkspaceDataPermissionModeEnum];
+
+export interface ConversationLocalWorkspaceResponse {
+    'code': number;
+    'data': ConversationLocalWorkspaceData;
+    'message': string;
+    'status'?: ConversationLocalWorkspaceResponseStatusEnum;
+}
+
+export const ConversationLocalWorkspaceResponseStatusEnum = {
+    Active: 'active',
+    Revoked: 'revoked',
+    PathUnavailable: 'path_unavailable',
+    Missing: 'missing',
+    None: 'none'
+} as const;
+
+export type ConversationLocalWorkspaceResponseStatusEnum = typeof ConversationLocalWorkspaceResponseStatusEnum[keyof typeof ConversationLocalWorkspaceResponseStatusEnum];
+
+export interface ConversationWorkspacePermissionData {
+    'permission_mode': ConversationWorkspacePermissionDataPermissionModeEnum;
+    'permission_version': number;
+    'workspace_id': string;
+}
+
+export const ConversationWorkspacePermissionDataPermissionModeEnum = {
+    AlwaysAsk: 'always_ask',
+    AskAsNeeded: 'ask_as_needed',
+    AllowAll: 'allow_all'
+} as const;
+
+export type ConversationWorkspacePermissionDataPermissionModeEnum = typeof ConversationWorkspacePermissionDataPermissionModeEnum[keyof typeof ConversationWorkspacePermissionDataPermissionModeEnum];
+
+export interface ConversationWorkspacePermissionRequest {
+    'permission_mode': ConversationWorkspacePermissionRequestPermissionModeEnum;
+    'version': number;
+}
+
+export const ConversationWorkspacePermissionRequestPermissionModeEnum = {
+    AlwaysAsk: 'always_ask',
+    AskAsNeeded: 'ask_as_needed',
+    AllowAll: 'allow_all'
+} as const;
+
+export type ConversationWorkspacePermissionRequestPermissionModeEnum = typeof ConversationWorkspacePermissionRequestPermissionModeEnum[keyof typeof ConversationWorkspacePermissionRequestPermissionModeEnum];
+
+export interface ConversationWorkspacePermissionResponse {
+    'code': number;
+    'data': ConversationWorkspacePermissionData;
+    'message': string;
+}
+
 export interface ConversationPinResponse {
     'conversation_id': string;
     'is_pinned': boolean;
@@ -1832,6 +1923,75 @@ export interface LocalFSChatSettingOpenAPIRequest {
 export interface LocalFSChatSettingOpenAPIResponse {
     'enabled': boolean;
 }
+export interface LocalWorkspace {
+    'affected_task_count': number;
+    'authorized_at': string;
+    'display_name': string;
+    'last_used_at': string;
+    'path': string;
+    'read_policy': LocalWorkspaceReadPolicyEnum;
+    'revoked_at'?: string;
+    'source'?: LocalWorkspaceSourceEnum;
+    'status': LocalWorkspaceStatusEnum;
+    'version': number;
+    'workspace_id': string;
+    'write_policy': LocalWorkspaceWritePolicyEnum;
+}
+
+export const LocalWorkspaceReadPolicyEnum = {
+    Allow: 'allow'
+} as const;
+
+export type LocalWorkspaceReadPolicyEnum = typeof LocalWorkspaceReadPolicyEnum[keyof typeof LocalWorkspaceReadPolicyEnum];
+export const LocalWorkspaceSourceEnum = {
+    Local: 'local',
+    Desktop: 'desktop'
+} as const;
+
+export type LocalWorkspaceSourceEnum = typeof LocalWorkspaceSourceEnum[keyof typeof LocalWorkspaceSourceEnum];
+export const LocalWorkspaceStatusEnum = {
+    Active: 'active',
+    Revoked: 'revoked',
+    PathUnavailable: 'path_unavailable'
+} as const;
+
+export type LocalWorkspaceStatusEnum = typeof LocalWorkspaceStatusEnum[keyof typeof LocalWorkspaceStatusEnum];
+export const LocalWorkspaceWritePolicyEnum = {
+    Allow: 'allow'
+} as const;
+
+export type LocalWorkspaceWritePolicyEnum = typeof LocalWorkspaceWritePolicyEnum[keyof typeof LocalWorkspaceWritePolicyEnum];
+
+export interface LocalWorkspaceListData {
+    'items': Array<LocalWorkspace>;
+}
+export interface LocalWorkspaceListResponse {
+    'code': number;
+    'data': LocalWorkspaceListData;
+    'message': string;
+}
+export interface LocalWorkspaceRevokeData {
+    'affected_task_count': number;
+    'status': LocalWorkspaceRevokeDataStatusEnum;
+    'version': number;
+    'workspace_id': string;
+}
+
+export const LocalWorkspaceRevokeDataStatusEnum = {
+    Revoked: 'revoked'
+} as const;
+
+export type LocalWorkspaceRevokeDataStatusEnum = typeof LocalWorkspaceRevokeDataStatusEnum[keyof typeof LocalWorkspaceRevokeDataStatusEnum];
+
+export interface LocalWorkspaceRevokeRequest {
+    'version': number;
+}
+export interface LocalWorkspaceRevokeResponse {
+    'affected_task_count'?: number;
+    'code': number;
+    'data': LocalWorkspaceRevokeData;
+    'message': string;
+}
 export interface MarketDeleteOpenAPIResponse {
     'deleted': boolean;
     'market_item_id': string;
@@ -2038,6 +2198,7 @@ export interface PromptPolishOpenAPIResponse {
     'content': string;
 }
 export interface PromptPolishRequest {
+    'allow_empty'?: boolean;
     'content': string;
     'user_instruct': string;
 }
@@ -2344,10 +2505,10 @@ export interface ShowcaseCase {
     'output_label': string;
     'output_type': string;
     'provider': string;
-    'source_url': string;
     'result_summary': string;
+    'source_url': string;
     'tags'?: Array<string>;
-    'tasks': Array<ShowcaseCaseTask>;
+    'tasks'?: Array<ShowcaseCaseTask>;
     'title': string;
     'type': string;
     'workflow_ref'?: string;
@@ -2371,10 +2532,10 @@ export interface ShowcaseCaseProductReport {
 export interface ShowcaseCaseResult {
     'eyebrow': string;
     'highlights'?: Array<string>;
-    'image_asset'?: string;
-    'image_url'?: string;
     'html_asset'?: string;
     'html_url'?: string;
+    'image_asset'?: string;
+    'image_url'?: string;
     'product_report'?: ShowcaseCaseProductReport;
     'summary': string;
     'template': string;
@@ -6973,14 +7134,14 @@ export const DatasetsApiAxiosParamCreator = function (configuration?: Configurat
          * @summary Dataset list
          * @param {string} [pageToken]
          * @param {number} [pageSize]
-         * @param {string} [orderBy]
+         * @param {ApiCoreDatasetsGetOrderByEnum} [orderBy] Sort datasets by latest_updated (default), most_used (per current user usage), or recent_used (latest of last used and content update).
          * @param {string} [keyword]
          * @param {Array<string>} [tags]
          * @param {ApiCoreDatasetsGetSourceEnum} [source] Filter datasets by creation source: manual (local upload), cloud (cloud document sync) or official_installed (installed from the knowledge plaza).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiCoreDatasetsGet: async (pageToken?: string, pageSize?: number, orderBy?: string, keyword?: string, tags?: Array<string>, source?: ApiCoreDatasetsGetSourceEnum, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        apiCoreDatasetsGet: async (pageToken?: string, pageSize?: number, orderBy?: ApiCoreDatasetsGetOrderByEnum, keyword?: string, tags?: Array<string>, source?: ApiCoreDatasetsGetSourceEnum, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/core/datasets`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -7148,14 +7309,14 @@ export const DatasetsApiFp = function(configuration?: Configuration) {
          * @summary Dataset list
          * @param {string} [pageToken]
          * @param {number} [pageSize]
-         * @param {string} [orderBy]
+         * @param {ApiCoreDatasetsGetOrderByEnum} [orderBy] Sort datasets by latest_updated (default), most_used (per current user usage), or recent_used (latest of last used and content update).
          * @param {string} [keyword]
          * @param {Array<string>} [tags]
          * @param {ApiCoreDatasetsGetSourceEnum} [source] Filter datasets by creation source: manual (local upload), cloud (cloud document sync) or official_installed (installed from the knowledge plaza).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiCoreDatasetsGet(pageToken?: string, pageSize?: number, orderBy?: string, keyword?: string, tags?: Array<string>, source?: ApiCoreDatasetsGetSourceEnum, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ListDatasetsResponse>> {
+        async apiCoreDatasetsGet(pageToken?: string, pageSize?: number, orderBy?: ApiCoreDatasetsGetOrderByEnum, keyword?: string, tags?: Array<string>, source?: ApiCoreDatasetsGetSourceEnum, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ListDatasetsResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreDatasetsGet(pageToken, pageSize, orderBy, keyword, tags, source, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DatasetsApi.apiCoreDatasetsGet']?.[localVarOperationServerIndex]?.url;
@@ -7306,7 +7467,10 @@ export interface DatasetsApiApiCoreDatasetsGetRequest {
 
     readonly pageSize?: number
 
-    readonly orderBy?: string
+    /**
+     * Sort datasets by latest_updated (default), most_used (per current user usage), or recent_used (latest of last used and content update).
+     */
+    readonly orderBy?: ApiCoreDatasetsGetOrderByEnum
 
     readonly keyword?: string
 
@@ -7409,6 +7573,12 @@ export class DatasetsApi extends BaseAPI {
     }
 }
 
+export const ApiCoreDatasetsGetOrderByEnum = {
+    LatestUpdated: 'latest_updated',
+    MostUsed: 'most_used',
+    RecentUsed: 'recent_used'
+} as const;
+export type ApiCoreDatasetsGetOrderByEnum = typeof ApiCoreDatasetsGetOrderByEnum[keyof typeof ApiCoreDatasetsGetOrderByEnum];
 export const ApiCoreDatasetsGetSourceEnum = {
     Manual: 'manual',
     Cloud: 'cloud',
@@ -8318,6 +8488,39 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          *
+         * @summary POST /conversations/{conversation_id}:promote
+         * @param {string} conversationId
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsConversationIdPromotePost: async (conversationId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'conversationId' is not null or undefined
+            assertParamExists('apiCoreConversationsConversationIdPromotePost', 'conversationId', conversationId)
+            const localVarPath = `/api/core/conversations/{conversation_id}:promote`
+                .replace(`{${"conversation_id"}}`, encodeURIComponent(String(conversationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         *
          * @summary Permanently delete a trashed conversation
          * @param {string} conversationId
          * @param {*} [options] Override http request option.
@@ -8730,6 +8933,69 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             assertParamExists('apiCoreConversationsConversationIdWorkflowSettingsPatch', 'conversationId', conversationId)
             const localVarPath = `/api/core/conversations/{conversation_id}/workflow-settings`
                 .replace(`{${"conversation_id"}}`, encodeURIComponent(String(conversationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         *
+         * @summary Get conversation local workspace
+         * @param {string} conversationId
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsConversationIdWorkspaceGet: async (conversationId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'conversationId' is not null or undefined
+            assertParamExists('apiCoreConversationsConversationIdWorkspaceGet', 'conversationId', conversationId)
+            const localVarPath = `/api/core/conversations/{conversation_id}:workspace`
+                .replace(`{${"conversation_id"}}`, encodeURIComponent(String(conversationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         *
+         * @summary PATCH /conversations:editable-block
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsEditableBlockPatch: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/core/conversations:editable-block`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -11099,6 +11365,85 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         *
+         * @summary List authorized local workspaces
+         * @param {number} [pageSize]
+         * @param {string} [query]
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreLocalWorkspacesGet: async (pageSize?: number, query?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/core/local-workspaces`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (pageSize !== undefined) {
+                localVarQueryParameter['page_size'] = pageSize;
+            }
+
+            if (query !== undefined) {
+                localVarQueryParameter['query'] = query;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         *
+         * @summary Revoke a local workspace
+         * @param {string} workspaceId
+         * @param {LocalWorkspaceRevokeRequest} localWorkspaceRevokeRequest
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreLocalWorkspacesWorkspaceIdRevokePost: async (workspaceId: string, localWorkspaceRevokeRequest: LocalWorkspaceRevokeRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'workspaceId' is not null or undefined
+            assertParamExists('apiCoreLocalWorkspacesWorkspaceIdRevokePost', 'workspaceId', workspaceId)
+            // verify required parameter 'localWorkspaceRevokeRequest' is not null or undefined
+            assertParamExists('apiCoreLocalWorkspacesWorkspaceIdRevokePost', 'localWorkspaceRevokeRequest', localWorkspaceRevokeRequest)
+            const localVarPath = `/api/core/local-workspaces/{workspace_id}:revoke`
+                .replace(`{${"workspace_id"}}`, encodeURIComponent(String(workspaceId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(localWorkspaceRevokeRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -15884,6 +16229,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          *
+         * @summary POST /conversations/{conversation_id}:promote
+         * @param {string} conversationId
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiCoreConversationsConversationIdPromotePost(conversationId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreConversationsConversationIdPromotePost(conversationId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreConversationsConversationIdPromotePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         *
          * @summary Permanently delete a trashed conversation
          * @param {string} conversationId
          * @param {*} [options] Override http request option.
@@ -16049,6 +16407,31 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreConversationsConversationIdWorkflowSettingsPatch(conversationId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreConversationsConversationIdWorkflowSettingsPatch']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         *
+         * @summary Get conversation local workspace
+         * @param {string} conversationId
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiCoreConversationsConversationIdWorkspaceGet(conversationId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ConversationLocalWorkspaceResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreConversationsConversationIdWorkspaceGet(conversationId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreConversationsConversationIdWorkspaceGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         *
+         * @summary PATCH /conversations:editable-block
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiCoreConversationsEditableBlockPatch(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreConversationsEditableBlockPatch(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreConversationsEditableBlockPatch']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -16917,6 +17300,34 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreListKbGroupsGet(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreListKbGroupsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         *
+         * @summary List authorized local workspaces
+         * @param {number} [pageSize]
+         * @param {string} [query]
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiCoreLocalWorkspacesGet(pageSize?: number, query?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<LocalWorkspaceListResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreLocalWorkspacesGet(pageSize, query, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreLocalWorkspacesGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         *
+         * @summary Revoke a local workspace
+         * @param {string} workspaceId
+         * @param {LocalWorkspaceRevokeRequest} localWorkspaceRevokeRequest
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiCoreLocalWorkspacesWorkspaceIdRevokePost(workspaceId: string, localWorkspaceRevokeRequest: LocalWorkspaceRevokeRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<LocalWorkspaceRevokeResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiCoreLocalWorkspacesWorkspaceIdRevokePost(workspaceId, localWorkspaceRevokeRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiCoreLocalWorkspacesWorkspaceIdRevokePost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -18906,6 +19317,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          *
+         * @summary POST /conversations/{conversation_id}:promote
+         * @param {DefaultApiApiCoreConversationsConversationIdPromotePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsConversationIdPromotePost(requestParameters: DefaultApiApiCoreConversationsConversationIdPromotePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiCoreConversationsConversationIdPromotePost(requestParameters.conversationId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         *
          * @summary Permanently delete a trashed conversation
          * @param {DefaultApiApiCoreConversationsConversationIdPurgeDeleteRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -19033,6 +19454,25 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         apiCoreConversationsConversationIdWorkflowSettingsPatch(requestParameters: DefaultApiApiCoreConversationsConversationIdWorkflowSettingsPatchRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.apiCoreConversationsConversationIdWorkflowSettingsPatch(requestParameters.conversationId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         *
+         * @summary Get conversation local workspace
+         * @param {DefaultApiApiCoreConversationsConversationIdWorkspaceGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsConversationIdWorkspaceGet(requestParameters: DefaultApiApiCoreConversationsConversationIdWorkspaceGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<ConversationLocalWorkspaceResponse> {
+            return localVarFp.apiCoreConversationsConversationIdWorkspaceGet(requestParameters.conversationId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         *
+         * @summary PATCH /conversations:editable-block
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreConversationsEditableBlockPatch(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiCoreConversationsEditableBlockPatch(options).then((request) => request(axios, basePath));
         },
         /**
          *
@@ -19661,6 +20101,26 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         apiCoreListKbGroupsGet(options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.apiCoreListKbGroupsGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         *
+         * @summary List authorized local workspaces
+         * @param {DefaultApiApiCoreLocalWorkspacesGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreLocalWorkspacesGet(requestParameters: DefaultApiApiCoreLocalWorkspacesGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<LocalWorkspaceListResponse> {
+            return localVarFp.apiCoreLocalWorkspacesGet(requestParameters.pageSize, requestParameters.query, options).then((request) => request(axios, basePath));
+        },
+        /**
+         *
+         * @summary Revoke a local workspace
+         * @param {DefaultApiApiCoreLocalWorkspacesWorkspaceIdRevokePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiCoreLocalWorkspacesWorkspaceIdRevokePost(requestParameters: DefaultApiApiCoreLocalWorkspacesWorkspaceIdRevokePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<LocalWorkspaceRevokeResponse> {
+            return localVarFp.apiCoreLocalWorkspacesWorkspaceIdRevokePost(requestParameters.workspaceId, requestParameters.localWorkspaceRevokeRequest, options).then((request) => request(axios, basePath));
         },
         /**
          *
@@ -21069,6 +21529,13 @@ export interface DefaultApiApiCoreConversationsConversationIdPinPostRequest {
 }
 
 /**
+ * Request parameters for apiCoreConversationsConversationIdPromotePost operation in DefaultApi.
+ */
+export interface DefaultApiApiCoreConversationsConversationIdPromotePostRequest {
+    readonly conversationId: string
+}
+
+/**
  * Request parameters for apiCoreConversationsConversationIdPurgeDelete operation in DefaultApi.
  */
 export interface DefaultApiApiCoreConversationsConversationIdPurgeDeleteRequest {
@@ -21156,6 +21623,13 @@ export interface DefaultApiApiCoreConversationsConversationIdWorkflowSessionsLat
  * Request parameters for apiCoreConversationsConversationIdWorkflowSettingsPatch operation in DefaultApi.
  */
 export interface DefaultApiApiCoreConversationsConversationIdWorkflowSettingsPatchRequest {
+    readonly conversationId: string
+}
+
+/**
+ * Request parameters for apiCoreConversationsConversationIdWorkspaceGet operation in DefaultApi.
+ */
+export interface DefaultApiApiCoreConversationsConversationIdWorkspaceGetRequest {
     readonly conversationId: string
 }
 
@@ -21617,6 +22091,24 @@ export interface DefaultApiApiCoreKbListGetRequest {
  */
 export interface DefaultApiApiCoreKbPermissionBatchPostRequest {
     readonly permissionBatchRequest: PermissionBatchRequest
+}
+
+/**
+ * Request parameters for apiCoreLocalWorkspacesGet operation in DefaultApi.
+ */
+export interface DefaultApiApiCoreLocalWorkspacesGetRequest {
+    readonly pageSize?: number
+
+    readonly query?: string
+}
+
+/**
+ * Request parameters for apiCoreLocalWorkspacesWorkspaceIdRevokePost operation in DefaultApi.
+ */
+export interface DefaultApiApiCoreLocalWorkspacesWorkspaceIdRevokePostRequest {
+    readonly workspaceId: string
+
+    readonly localWorkspaceRevokeRequest: LocalWorkspaceRevokeRequest
 }
 
 /**
@@ -22658,6 +23150,17 @@ export class DefaultApi extends BaseAPI {
 
     /**
      *
+     * @summary POST /conversations/{conversation_id}:promote
+     * @param {DefaultApiApiCoreConversationsConversationIdPromotePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiCoreConversationsConversationIdPromotePost(requestParameters: DefaultApiApiCoreConversationsConversationIdPromotePostRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiCoreConversationsConversationIdPromotePost(requestParameters.conversationId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     *
      * @summary Permanently delete a trashed conversation
      * @param {DefaultApiApiCoreConversationsConversationIdPurgeDeleteRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -22797,6 +23300,27 @@ export class DefaultApi extends BaseAPI {
      */
     public apiCoreConversationsConversationIdWorkflowSettingsPatch(requestParameters: DefaultApiApiCoreConversationsConversationIdWorkflowSettingsPatchRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiCoreConversationsConversationIdWorkflowSettingsPatch(requestParameters.conversationId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     *
+     * @summary Get conversation local workspace
+     * @param {DefaultApiApiCoreConversationsConversationIdWorkspaceGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiCoreConversationsConversationIdWorkspaceGet(requestParameters: DefaultApiApiCoreConversationsConversationIdWorkspaceGetRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiCoreConversationsConversationIdWorkspaceGet(requestParameters.conversationId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     *
+     * @summary PATCH /conversations:editable-block
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiCoreConversationsEditableBlockPatch(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiCoreConversationsEditableBlockPatch(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -23489,6 +24013,28 @@ export class DefaultApi extends BaseAPI {
      */
     public apiCoreListKbGroupsGet(options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiCoreListKbGroupsGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     *
+     * @summary List authorized local workspaces
+     * @param {DefaultApiApiCoreLocalWorkspacesGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiCoreLocalWorkspacesGet(requestParameters: DefaultApiApiCoreLocalWorkspacesGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiCoreLocalWorkspacesGet(requestParameters.pageSize, requestParameters.query, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     *
+     * @summary Revoke a local workspace
+     * @param {DefaultApiApiCoreLocalWorkspacesWorkspaceIdRevokePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiCoreLocalWorkspacesWorkspaceIdRevokePost(requestParameters: DefaultApiApiCoreLocalWorkspacesWorkspaceIdRevokePostRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiCoreLocalWorkspacesWorkspaceIdRevokePost(requestParameters.workspaceId, requestParameters.localWorkspaceRevokeRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

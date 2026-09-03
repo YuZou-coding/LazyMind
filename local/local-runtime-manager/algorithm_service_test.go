@@ -140,6 +140,7 @@ func TestAlgorithmServiceEnvPinsLocalRouterHost(t *testing.T) {
 	assertEnvContains(t, env, "LAZYMIND_ROUTER_HOST=127.0.0.1")
 	assertEnvContains(t, env, "LAZYMIND_WORKFLOW_EXECUTOR_TOKEN=dev-workflow-executor-token")
 	assertEnvContains(t, env, "LAZYMIND_WORKFLOWS_DIR="+filepath.Join(repo, "workflows"))
+	assertEnvContains(t, env, localWorkspaceHostTokenEnvVar+"="+localWorkspaceHostToken(cfg, paths))
 }
 
 func TestWorkflowExecutorTokenMatchesCoreAndAlgorithmOverride(t *testing.T) {

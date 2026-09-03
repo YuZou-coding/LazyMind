@@ -12,6 +12,74 @@ func manualOpenAPISpec() map[string]any {
 func manualSchemas() map[string]any {
 	return map[string]any{
 		"EmptyObject": obj(),
+		"LocalWorkspace": objReq(
+			[]string{"workspace_id", "display_name", "path", "status", "version", "read_policy", "write_policy", "affected_task_count", "authorized_at", "last_used_at"},
+			prop("workspace_id", strSchema()),
+			prop("display_name", strSchema()),
+			prop("path", strSchema()),
+			prop("status", enumStringSchema("active", "revoked", "path_unavailable")),
+			prop("version", int64Schema()),
+			prop("source", enumStringSchema("local", "desktop")),
+			prop("read_policy", enumStringSchema("allow")),
+			prop("write_policy", enumStringSchema("allow")),
+			prop("affected_task_count", int64Schema()),
+			prop("authorized_at", dateTimeSchema()),
+			prop("last_used_at", dateTimeSchema()),
+			prop("revoked_at", dateTimeSchema()),
+		),
+		"LocalWorkspaceRevokeRequest": objReq(
+			[]string{"version"}, prop("version", int64Schema()),
+		),
+		"ConversationLocalWorkspaceBindingRequest": obj(
+			prop("workspace_id", strSchema()),
+			prop("workspace_permission_mode", enumStringSchema("always_ask", "ask_as_needed", "allow_all")),
+		),
+		"ConversationWorkspacePermissionRequest": objReq(
+			[]string{"permission_mode", "version"},
+			prop("permission_mode", enumStringSchema("always_ask", "ask_as_needed", "allow_all")),
+			prop("version", int64Schema()),
+		),
+		"ConversationWorkspacePermissionData": objReq(
+			[]string{"workspace_id", "permission_mode", "permission_version"},
+			prop("workspace_id", strSchema()),
+			prop("permission_mode", enumStringSchema("always_ask", "ask_as_needed", "allow_all")),
+			prop("permission_version", int64Schema()),
+		),
+		"ConversationWorkspacePermissionResponse": objReq(
+			[]string{"code", "message", "data"},
+			prop("code", intSchema()), prop("message", strSchema()),
+			prop("data", refSchema("ConversationWorkspacePermissionData")),
+		),
+		"LocalWorkspaceListData": objReq(
+			[]string{"items"}, prop("items", array(refSchema("LocalWorkspace"))),
+		),
+		"LocalWorkspaceListResponse": objReq(
+			[]string{"code", "message", "data"},
+			prop("code", intSchema()), prop("message", strSchema()), prop("data", refSchema("LocalWorkspaceListData")),
+		),
+		"LocalWorkspaceRevokeData": objReq(
+			[]string{"workspace_id", "status", "version", "affected_task_count"},
+			prop("workspace_id", strSchema()), prop("status", enumStringSchema("revoked")),
+			prop("version", int64Schema()), prop("affected_task_count", int64Schema()),
+		),
+		"LocalWorkspaceRevokeResponse": objReq(
+			[]string{"code", "message", "data"},
+			prop("code", intSchema()), prop("message", strSchema()), prop("data", refSchema("LocalWorkspaceRevokeData")),
+			prop("affected_task_count", int64Schema()),
+		),
+		"ConversationLocalWorkspaceData": objReq(
+			[]string{"status"},
+			prop("status", enumStringSchema("active", "revoked", "path_unavailable", "missing", "none")),
+			prop("workspace_id", strSchema()), prop("workspace", refSchema("LocalWorkspace")),
+			prop("affected_task_count", int64Schema()),
+			prop("permission_mode", enumStringSchema("always_ask", "ask_as_needed", "allow_all")),
+			prop("permission_version", int64Schema()),
+		),
+		"ConversationLocalWorkspaceResponse": objReq(
+			[]string{"code", "message", "data"},
+			prop("code", intSchema()), prop("message", strSchema()), prop("data", refSchema("ConversationLocalWorkspaceData")),
+			prop("status", enumStringSchema("active", "revoked", "path_unavailable", "missing", "none")),
+		),
 		"ErrorResponse": obj(
 			prop("code", intSchema()),
 			prop("message", strSchema()),
@@ -512,7 +580,7 @@ func manualSchemas() map[string]any {
 		"ConversationSwitchStatusResponse": obj(prop("status", intSchema())),
 		"ConversationChatStatusResponse":   obj(prop("is_generating", boolSchema())),
 		"ConversationItem": obj(
-			prop("name", strSchema()), prop("conversation_id", strSchema()), prop("display_name", strSchema()), prop("search_config", obj()), prop("user", strSchema()), prop("chat_times", int64Schema()), prop("total_feedback_like", int64Schema()), prop("total_feedback_unlike", int64Schema()), prop("create_time", strSchema()), prop("update_time", strSchema()), prop("pinned_at", nullableSchema(dateTimeSchema())), prop("is_pinned", boolSchema()), prop("models", array(strSchema())), prop("chat_executor", enumStringSchema("lazymind", "codex", "cursor", "workbuddy")), prop("thinking_depth", enumStringSchema("low", "medium", "high", "max")), prop("assistant", enumStringSchema("lazymind", "codex", "cursor", "workbuddy")), prop("project_key", strSchema()), prop("project_name", strSchema()),
+			prop("name", strSchema()), prop("conversation_id", strSchema()), prop("display_name", strSchema()), prop("search_config", obj()), prop("user", strSchema()), prop("chat_times", int64Schema()), prop("total_feedback_like", int64Schema()), prop("total_feedback_unlike", int64Schema()), prop("create_time", strSchema()), prop("update_time", strSchema()), prop("pinned_at", nullableSchema(dateTimeSchema())), prop("is_pinned", boolSchema()), prop("models", array(strSchema())), prop("is_task_conv", boolSchema()), prop("chat_executor", enumStringSchema("lazymind", "codex", "cursor", "workbuddy")), prop("thinking_depth", enumStringSchema("low", "medium", "high", "max")), prop("assistant", enumStringSchema("lazymind", "codex", "cursor", "workbuddy")), prop("project_key", strSchema()), prop("project_name", strSchema()),
 		),
 		"ConversationPinResponse": objReq(
 			[]string{"conversation_id", "is_pinned"},
@@ -625,6 +693,27 @@ func manualSchemas() map[string]any {
 
 func manualPaths() map[string]any {
 	return map[string]any{
+		"/local-workspaces": map[string]any{
+			"get": op("List authorized local workspaces", queryParams(
+				param("query", "page_size", false, intSchema()), param("query", "query", false, strSchema()),
+				param("query", "include_inactive", false, boolSchema()),
+			), nil, response(200, "Authorized local workspaces", refSchema("LocalWorkspaceListResponse"))),
+		},
+		"/local-workspaces/{workspace_id}:revoke": map[string]any{
+			"post": op("Revoke a local workspace", []map[string]any{
+				param("path", "workspace_id", true, strSchema()),
+			}, jsonBody(refSchema("LocalWorkspaceRevokeRequest"), true), response(200, "Revoked local workspace", refSchema("LocalWorkspaceRevokeResponse"))),
+		},
+		"/conversations/{conversation_id}:workspace": map[string]any{
+			"get": op("Get conversation local workspace", []map[string]any{
+				param("path", "conversation_id", true, strSchema()),
+			}, nil, response(200, "Conversation local workspace", refSchema("ConversationLocalWorkspaceResponse"))),
+		},
+		"/conversations/{conversation_id}:workspace-permission": map[string]any{
+			"put": op("Update conversation workspace permission mode", []map[string]any{
+				param("path", "conversation_id", true, strSchema()),
+			}, jsonBody(refSchema("ConversationWorkspacePermissionRequest"), true), response(200, "Updated conversation workspace permission", refSchema("ConversationWorkspacePermissionResponse"))),
+		},
 		"/dataset/algos": map[string]any{"get": op("Dataset algorithm list", nil, nil, response(200, "Algorithm list", refSchema("ListAlgosResponse")))},
 		"/dataset/tags":  map[string]any{"get": op("Dataset tags", queryParams(param("name", "order_by", false, strSchema()), param("query", "keyword", false, strSchema())), nil, response(200, "Dataset tags", refSchema("AllDatasetTagsResponse")))},
 		"/datasets": map[string]any{

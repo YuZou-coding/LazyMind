@@ -10,18 +10,25 @@ export interface ToolLimitPending {
   round_limit: number;
   expanded_max_rounds: number;
   timeout_seconds: number;
+  approval_kind?: string;
+  tool_name?: string;
+  command?: string;
+  path?: string;
+  cwd?: string;
+  reason?: string;
 }
 
 interface ToolLimitCardProps {
   pending: ToolLimitPending;
-  onDecision: (action: "continue" | "summarize") => Promise<void>;
+  onDecision: (action: "continue" | "summarize" | "allow_once" | "deny") => Promise<void>;
 }
 
 export default function ToolLimitCard({ pending, onDecision }: ToolLimitCardProps) {
   const { t } = useTranslation();
   const totalSeconds = Math.max(0, Math.ceil(pending.timeout_seconds || 0));
   const [remaining, setRemaining] = useState(totalSeconds);
-  const [resolved, setResolved] = useState<"continue" | "summarize" | "auto" | null>(null);
+  const approval = pending.approval_kind === "tool";
+  const [resolved, setResolved] = useState<"continue" | "summarize" | "allow_once" | "deny" | "auto" | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -53,7 +60,7 @@ export default function ToolLimitCard({ pending, onDecision }: ToolLimitCardProp
     [remaining, totalSeconds],
   );
 
-  const choose = async (action: "continue" | "summarize") => {
+  const choose = async (action: "continue" | "summarize" | "allow_once" | "deny") => {
     if (resolved || submitting) return;
     setSubmitting(true);
     try {
@@ -66,24 +73,32 @@ export default function ToolLimitCard({ pending, onDecision }: ToolLimitCardProp
     }
   };
 
-  if (resolved === "continue" || resolved === "summarize") return null;
+  if (resolved && resolved !== "auto") return null;
 
   return (
     <div className="tool-limit-card">
-      <div className="tool-limit-card__title">{t("chat.toolLimitTitle")}</div>
+      <div className="tool-limit-card__title">
+        {approval ? t("chat.workspaceApprovalTitle") : t("chat.toolLimitTitle")}
+      </div>
       <p className="tool-limit-card__description">
-        {t("chat.toolLimitDescription", {
+        {approval ? t("chat.workspaceApprovalDescription") : t("chat.toolLimitDescription", {
           used: pending.used_rounds,
           max: pending.expanded_max_rounds,
         })}
       </p>
+      {approval && pending.command ? <pre>{pending.command}</pre> : null}
+      {approval && pending.path ? <p>{pending.path}</p> : null}
+      {approval ? <p>{t("chat.workspaceApprovalCwd", { cwd: pending.cwd || "." })}</p> : null}
+      {approval && pending.reason ? <p>{pending.reason}</p> : null}
       {resolved ? (
         <div className="tool-limit-card__status">
-          {resolved === "summarize"
-            ? t("chat.toolLimitSummarizing")
-            : resolved === "auto"
-              ? t("chat.toolLimitAutoContinued")
-              : t("chat.toolLimitContinuing")}
+          {approval && resolved === "auto"
+            ? t("chat.workspaceApprovalExpired")
+            : resolved === "summarize"
+              ? t("chat.toolLimitSummarizing")
+              : resolved === "auto"
+                ? t("chat.toolLimitAutoContinued")
+                : t("chat.toolLimitContinuing")}
         </div>
       ) : (
         <>
@@ -92,11 +107,11 @@ export default function ToolLimitCard({ pending, onDecision }: ToolLimitCardProp
             {t("chat.toolLimitCountdown", { seconds: remaining })}
           </div>
           <div className="tool-limit-card__actions">
-            <Button type="primary" loading={submitting} onClick={() => choose("continue")}>
-              {t("chat.toolLimitContinue")}
+            <Button type="primary" loading={submitting} onClick={() => choose(approval ? "allow_once" : "continue")}>
+              {approval ? t("chat.workspaceApprovalAllow") : t("chat.toolLimitContinue")}
             </Button>
-            <Button disabled={submitting} onClick={() => choose("summarize")}>
-              {t("chat.toolLimitSummarize")}
+            <Button disabled={submitting} onClick={() => choose(approval ? "deny" : "summarize")}>
+              {approval ? t("chat.workspaceApprovalDeny") : t("chat.toolLimitSummarize")}
             </Button>
           </div>
         </>

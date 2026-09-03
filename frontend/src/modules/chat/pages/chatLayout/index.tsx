@@ -118,6 +118,7 @@ const ChatLayout: FC<IChatLayoutProps> = (props) => {
   );
   // Workflow settings loaded from conversation detail (for existing conversations).
   const [conversationSettings, setConversationSettings] = useState<ConversationRuntimeSettings | undefined>(undefined);
+  const [isTaskConversation, setIsTaskConversation] = useState(false);
   const [knowledgeRefreshKey, setKnowledgeRefreshKey] = useState(0);
   const [isTaskPanelCollapsed, setIsTaskPanelCollapsed] = useState(false);
   const [panelWidth, setPanelWidth] = useState<number>(0); // 0 = use CSS default
@@ -190,6 +191,7 @@ const ChatLayout: FC<IChatLayoutProps> = (props) => {
         setConversationSettings(
           parseConversationRuntimeSettings(detailRes.data.conversation),
         );
+        setIsTaskConversation(detailRes.data.conversation?.is_task_conv === true);
         useChatThinkStore.getState().setThinkingDepth(
           resolveConversationThinkingDepth(detailRes.data.conversation),
         );
@@ -394,6 +396,9 @@ const ChatLayout: FC<IChatLayoutProps> = (props) => {
     callbacks: Record<string, (e: CustomEvent) => void>,
     extras?: Record<string, unknown>,
   ) {
+    if (extras?.run_in_background === true) {
+      setIsTaskConversation(true);
+    }
     // Flush any pending slot drafts before sending so the AI sees the latest content.
     // Draft keys use the workflow session_id (not the conversation_id), so pass the
     // workflow session_id when one is active; fall back to conversationId otherwise.
@@ -493,6 +498,12 @@ const ChatLayout: FC<IChatLayoutProps> = (props) => {
         ...(workflowUIState ? { workflow_ui_state: workflowUIState } : {}),
         ...(artifactRefs.length > 0 ? { artifact_refs: artifactRefs } : {}),
         ...(extras?.run_in_background ? { run_in_background: true } : {}),
+        ...(typeof extras?.workspace_id === "string" && extras.workspace_id
+          ? { workspace_id: extras.workspace_id }
+          : {}),
+        ...(typeof extras?.workspace_permission_mode === "string"
+          ? { workspace_permission_mode: extras.workspace_permission_mode }
+          : {}),
         ...(Array.isArray(extras?.mentions) && extras.mentions.length > 0
           ? { mentions: extras.mentions }
           : {}),
@@ -572,6 +583,7 @@ const ChatLayout: FC<IChatLayoutProps> = (props) => {
       ]);
       if (requestId !== loadConversationRequestRef.current) return;
       const conversation = detailRes.data.conversation;
+      setIsTaskConversation(conversation?.is_task_conv === true);
       useChatThinkStore.getState().setThinkingDepth(
         resolveConversationThinkingDepth(conversation),
       );
@@ -625,6 +637,7 @@ const ChatLayout: FC<IChatLayoutProps> = (props) => {
       setSessionId("");
       setIsRestoringConversation(false);
       setConversationSettings(undefined);
+      setIsTaskConversation(false);
       setChatConfig({});
       setChatConfigFn({});
       chatRef.current?.createNewChat();
@@ -787,6 +800,7 @@ const ChatLayout: FC<IChatLayoutProps> = (props) => {
         }}
         initialConversationSettings={conversationSettings}
         hasWorkflowSession={hasWorkflowSession}
+        runInBackground={isTaskConversation}
         knowledgeRefreshKey={knowledgeRefreshKey}
         embeddingReady={embeddingReady}
         multimodalEmbeddingReady={multimodalEmbeddingReady}

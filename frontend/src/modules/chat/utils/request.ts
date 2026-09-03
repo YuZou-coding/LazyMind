@@ -149,7 +149,7 @@ export const convEventsUrl = (conversationId: string) =>
 export function decideToolLimit(
   conversationId: string,
   decisionId: string,
-  action: "continue" | "summarize",
+  action: "continue" | "summarize" | "allow_once" | "deny",
 ) {
   return axiosInstance.post(
     `${coreApiBaseUrl}/conversations/${encodeURIComponent(conversationId)}:toolLimitDecision`,

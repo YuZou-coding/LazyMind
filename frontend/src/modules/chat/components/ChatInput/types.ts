@@ -29,8 +29,12 @@ export interface SendMessageParams {
   create_time?: string;
   thinking_depth?: ThinkingDepth;
   run_in_background?: boolean;
+  workspace_id?: string;
+  workspace_permission_mode?: WorkspacePermissionMode;
   ask_answers_structured?: import("@/modules/chat/components/AskCard").AskAnswersStructured;
 }
+
+export type WorkspacePermissionMode = "always_ask" | "ask_as_needed" | "allow_all";
 
 export interface ChatInputImperativeProps {
   clearFiles: () => void;
