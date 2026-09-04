@@ -1,4 +1,21 @@
-# Local Workspace Checklist Completion Design
+# Local/Desktop Work 本地工作区实现设计与接手约定
+
+更新时间：2026-09-04
+
+本文档与同目录的 `HANDOFF.md`、`checklist.md`、`spec.md` 和 `tasks.md`
+共同维护。后续 Agent 应先读取 `HANDOFF.md` 获取最新工作树状态，再用本文档理解稳定的
+架构边界；实际代码和新鲜测试结果始终优先于文档中的历史结论。
+
+## 接手与维护规则
+
+1. 先运行 `git status --short`，区分 staged、unstaged 和 untracked 改动。
+2. 禁止 reset、clean 或覆盖未知改动；不得处理 `docs/plan/.DS_Store`。
+3. `algorithm/lazyllm` 绝对只读，不得修改、增加文件或生成补丁。
+4. 实现优先放在 `backend/`；只有 Backend 无法完成宿主行为时，才最小修改
+   `algorithm/lazymind/`、`local/`、`desktop/` 或 `frontend/`。
+5. 每轮开发结束时更新 `HANDOFF.md` 的实际改动、测试结果、阻塞和下一步；只有获得
+   直接证据的项目才能在 `checklist.md` 中勾选。
+6. 文档若与代码冲突，以当前工作树和重新执行的验证结果为准，并立即修正文档。
 
 ## Goal
 
