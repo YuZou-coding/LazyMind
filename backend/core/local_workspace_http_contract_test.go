@@ -20,7 +20,7 @@ type localWorkspaceEnvelope struct {
 	Data json.RawMessage `json:"data"`
 }
 
-const localWorkspaceNotFoundHTTPCode = 2002326
+const localWorkspaceNotFoundHTTPCode = 2002375
 
 func newLocalWorkspaceHTTPContract(t *testing.T) (*orm.DB, http.Handler) {
 	t.Helper()

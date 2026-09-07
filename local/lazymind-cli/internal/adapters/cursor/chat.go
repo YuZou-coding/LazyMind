@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -19,8 +18,10 @@ import (
 const maxEventBytes = 4 << 20
 
 const (
-	statusTimeout = 5 * time.Second
-	loginTimeout  = 2 * time.Minute
+	statusTimeout    = 20 * time.Second
+	statusAttempts   = 2
+	statusRetryDelay = 250 * time.Millisecond
+	loginTimeout     = 2 * time.Minute
 )
 
 type ChatRunner struct {
@@ -46,17 +47,8 @@ func NewChatRunner(binary string) (*ChatRunner, error) {
 }
 
 func findBinary(configured string) (string, error) {
-	name := "cursor-agent"
-	home, _ := os.UserHomeDir()
-	var candidates []string
-	if home != "" {
-		candidates = append(candidates, filepath.Join(home, ".local", "bin", name))
-		versions, _ := filepath.Glob(filepath.Join(home, ".local", "share", "cursor-agent", "versions", "*", name))
-		sort.Sort(sort.Reverse(sort.StringSlice(versions)))
-		candidates = append(candidates, versions...)
-	}
 	resolved, err := agentexec.FindBound(
-		configured, "LAZYMIND_CURSOR_AGENT_BIN", agentexec.CursorCLI, []string{name}, candidates,
+		configured, "LAZYMIND_CURSOR_AGENT_BIN", agentexec.CursorCLI, []string{"cursor-agent"},
 	)
 	if err != nil {
 		if strings.TrimSpace(configured) != "" || strings.TrimSpace(os.Getenv("LAZYMIND_CURSOR_AGENT_BIN")) != "" {
@@ -92,21 +84,28 @@ func Probe(binary string) (bool, bool, string) {
 }
 
 func availability(binary string) (bool, string) {
-	ctx, cancel := context.WithTimeout(context.Background(), statusTimeout)
-	defer cancel()
-	status, err := agentexec.Run(ctx, binary, "status")
-	detail := strings.ToLower(strings.TrimSpace(status))
-	if err != nil {
-		detail += " " + strings.ToLower(err.Error())
+	for attempt := 0; attempt < statusAttempts; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), statusTimeout)
+		status, err := agentexec.Run(ctx, binary, "status")
+		timedOut := ctx.Err() != nil
+		cancel()
+		detail := strings.ToLower(strings.TrimSpace(status))
+		if err != nil {
+			detail += " " + strings.ToLower(err.Error())
+		}
+		if strings.Contains(detail, "not logged in") || strings.Contains(detail, "not authenticated") ||
+			strings.Contains(detail, "login required") || strings.Contains(detail, "authentication required") {
+			return false, "Cursor Agent CLI is not signed in; run `cursor-agent login`"
+		}
+		if err == nil {
+			return true, ""
+		}
+		if timedOut || attempt+1 == statusAttempts {
+			break
+		}
+		time.Sleep(statusRetryDelay)
 	}
-	if strings.Contains(detail, "not logged in") || strings.Contains(detail, "not authenticated") ||
-		strings.Contains(detail, "login required") || strings.Contains(detail, "authentication required") {
-		return false, "Cursor Agent CLI is not signed in; run `cursor-agent login`"
-	}
-	if err != nil {
-		return false, "Cursor Agent CLI status check failed; retry or run `cursor-agent status`"
-	}
-	return true, ""
+	return false, "Cursor Agent CLI status check failed; retry or run `cursor-agent status`"
 }
 
 func (r *ChatRunner) Run(ctx context.Context, run chatagent.Run, emit func(chatagent.Event) error) error {

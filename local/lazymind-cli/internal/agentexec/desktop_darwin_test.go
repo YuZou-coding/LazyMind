@@ -28,6 +28,20 @@ func TestInspectDesktopApplicationFindsMacAppWithoutBindingsOrState(t *testing.T
 	}
 }
 
+func TestFindDesktopApplicationReturnsMacBundle(t *testing.T) {
+	applications := t.TempDir()
+	bundle := filepath.Join(applications, "WorkBuddy.app")
+	t.Setenv("LAZYMIND_DESKTOP_APPLICATION_DIRS", applications)
+	if err := os.Mkdir(bundle, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	resolved, err := FindDesktopApplication(DesktopApplication{DisplayNames: []string{"WorkBuddy"}})
+	if err != nil || resolved != bundle {
+		t.Fatalf("resolved=%q err=%v", resolved, err)
+	}
+}
+
 func TestInspectDesktopApplicationMatchesLocalizedMacAppName(t *testing.T) {
 	applications := t.TempDir()
 	t.Setenv("LAZYMIND_DESKTOP_APPLICATION_DIRS", applications)
@@ -65,5 +79,22 @@ func TestInspectDesktopApplicationDoesNotTreatStaleStateAsFirstLaunch(t *testing
 	}
 	if state.Installed || state.Initialized {
 		t.Fatalf("stale state must not satisfy installation or first launch: %#v", state)
+	}
+}
+
+func TestInspectDesktopApplicationAcceptsBoundMacApplicationBundle(t *testing.T) {
+	applications := t.TempDir()
+	bundle := filepath.Join(applications, "Custom Codex.app")
+	if err := os.Mkdir(bundle, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LAZYMIND_HOME", t.TempDir())
+	if _, err := SetExecutableBinding(CodexDesktop, bundle); err != nil {
+		t.Fatal(err)
+	}
+
+	state, err := InspectDesktopApplication(DesktopApplication{BindingTarget: CodexDesktop})
+	if err != nil || !state.Installed {
+		t.Fatalf("state=%#v err=%v", state, err)
 	}
 }

@@ -64,6 +64,7 @@ func ensureConversationWithWorkspace(
 	runInBackground bool,
 	requestedThinkingDepth string,
 	conversationSettings map[string]any,
+	initialModelSelection *initialChatModelSelection,
 	raw map[string]any,
 ) (*orm.Conversation, int, error) {
 	workspaceID, workspacePresent := requestedWorkspaceID(raw)
@@ -100,7 +101,7 @@ func ensureConversationWithWorkspace(
 
 		created, nextSeq, err := ensureConversation(
 			ctx, tx, convID, displayName, searchConfig, models, userID, userName,
-			runInBackground, requestedThinkingDepth, conversationSettings,
+			runInBackground, requestedThinkingDepth, conversationSettings, initialModelSelection,
 		)
 		if err != nil {
 			return err

@@ -4,6 +4,7 @@ import type { ImageUploadImperativeProps } from "../ImageUpload";
 import type { ThinkingDepth } from "@/modules/chat/store/chatThink";
 import type { ChatMention } from "./MentionEditor";
 import type { ChatConfig } from "../ChatConfigs";
+import type { ChatModelSelectionRequest } from "@/modules/chat/store/modelSelection";
 
 export interface ChatFileList {
   uid: string;
@@ -31,7 +32,11 @@ export interface SendMessageParams {
   run_in_background?: boolean;
   workspace_id?: string;
   workspace_permission_mode?: WorkspacePermissionMode;
+  /** Model binding used when the first message creates a conversation. */
+  initial_model_selection?: ChatModelSelectionRequest;
   ask_answers_structured?: import("@/modules/chat/components/AskCard").AskAnswersStructured;
+  mail_draft_confirm_id?: string;
+  mail_draft_confirm_revision?: number;
 }
 
 export type WorkspacePermissionMode = "always_ask" | "ask_as_needed" | "allow_all";

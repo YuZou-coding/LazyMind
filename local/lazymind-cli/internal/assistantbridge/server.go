@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -27,20 +28,23 @@ import (
 )
 
 const (
-	DefaultAddress    = "127.0.0.1:19091"
-	agentLoginTimeout = 2 * time.Minute
+	DefaultAddress       = "127.0.0.1:19091"
+	agentLoginTimeout    = 2 * time.Minute
+	bridgeProbeTimeout   = 5 * time.Second
+	clientPlatformHeader = "X-LazyMind-Client-Platform"
 )
 
 type Server struct {
-	address string
-	bridge  *mcpbridge.Bridge
-	store   *credentials.Store
-	policy  *executorpolicy.Store
-	mu      sync.Mutex
-	stop    context.CancelFunc
-	loginMu sync.Mutex
-	logins  map[string]agentLogin
-	loginID uint64
+	address       string
+	bridge        *mcpbridge.Bridge
+	executorProbe bridgeProber
+	store         *credentials.Store
+	policy        *executorpolicy.Store
+	mu            sync.Mutex
+	stop          context.CancelFunc
+	loginMu       sync.Mutex
+	logins        map[string]agentLogin
+	loginID       uint64
 
 	loginOverride func(context.Context, string) error
 }
@@ -67,7 +71,7 @@ func New(address string, bridge *mcpbridge.Bridge, store *credentials.Store, pol
 		return nil, errors.New("Assistant Bridge must listen on the loopback interface")
 	}
 	return &Server{
-		address: address, bridge: bridge, store: store, policy: policy,
+		address: address, bridge: bridge, executorProbe: bridge, store: store, policy: policy,
 		logins: make(map[string]agentLogin),
 	}, nil
 }
@@ -280,14 +284,43 @@ func (s *Server) handleExecutableBinding(writer http.ResponseWriter, request *ht
 	})
 }
 
-func (s *Server) handleExecutorPolicies(writer http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleExecutorPolicies(writer http.ResponseWriter, request *http.Request) {
 	s.policy.Recheck()
-	statuses, err := ExecutorStatuses(s.policy)
+	statuses, err := ExecutorStatusesWithBridge(request.Context(), s.policy, s.executorProbe)
 	if err != nil {
 		writeError(writer, err)
 		return
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"executors": statuses})
+}
+
+type bridgeProber interface {
+	Probe(context.Context) (mcpbridge.ProbeResult, error)
+}
+
+func ExecutorStatusesWithBridge(
+	ctx context.Context,
+	policy *executorpolicy.Store,
+	bridge bridgeProber,
+) (map[string]executorpolicy.Status, error) {
+	statuses, err := ExecutorStatuses(policy)
+	if err != nil {
+		return nil, err
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, bridgeProbeTimeout)
+	defer cancel()
+	_, probeErr := bridge.Probe(probeCtx)
+	state := executorpolicy.BridgeReady
+	if credentials.IsAuthenticationRequired(probeErr) {
+		state = executorpolicy.BridgeAuthenticationRequired
+	} else if probeErr != nil {
+		state = executorpolicy.BridgeUnavailable
+	}
+	for provider, status := range statuses {
+		status.BridgeState = state
+		statuses[provider] = status
+	}
+	return statuses, nil
 }
 
 func ExecutorStatuses(policy *executorpolicy.Store) (map[string]executorpolicy.Status, error) {
@@ -520,7 +553,7 @@ func (s *Server) allowLocalBrowser(next http.Handler) http.Handler {
 		}
 		if origin != "" {
 			writer.Header().Set("Access-Control-Allow-Origin", origin)
-			writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, "+clientPlatformHeader)
 			writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			writer.Header().Set("Vary", "Origin")
 		}
@@ -528,8 +561,26 @@ func (s *Server) allowLocalBrowser(next http.Handler) http.Handler {
 			writer.WriteHeader(http.StatusNoContent)
 			return
 		}
+		if strings.HasPrefix(request.URL.Path, "/v1/agents") && clientPlatformMismatch(request) {
+			clientPlatform := strings.ToLower(strings.TrimSpace(request.Header.Get(clientPlatformHeader)))
+			writeJSON(writer, http.StatusConflict, map[string]string{
+				"error": fmt.Sprintf(
+					"LazyMind is open on %s, but Assistant Bridge is running on %s. Stop the Linux/WSL bridge and start the native %s Assistant Bridge; cross-platform desktop MCP paths are not executable.",
+					clientPlatform, runtime.GOOS, clientPlatform,
+				),
+			})
+			return
+		}
 		next.ServeHTTP(writer, request)
 	})
+}
+
+func clientPlatformMismatch(request *http.Request) bool {
+	clientPlatform := strings.ToLower(strings.TrimSpace(request.Header.Get(clientPlatformHeader)))
+	if clientPlatform == "" {
+		return false
+	}
+	return clientPlatform != runtime.GOOS
 }
 
 func localOrigin(value string) bool {

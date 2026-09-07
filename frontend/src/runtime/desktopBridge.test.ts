@@ -24,23 +24,45 @@ describe("browser Assistant Bridge session synchronization", () => {
     Reflect.deleteProperty(window, "lazymindDesktop");
   });
 
-  it("uses the Desktop bridge before attempting browser session synchronization", async () => {
+  it("clears a stale Assistant session before reading status through Desktop IPC", async () => {
     const status = { agent: "codex", display_name: "Codex", state: "ready" };
     const desktopStatus = vi.fn().mockResolvedValue({ agents: { codex: status } });
+    const sessionClear = vi.fn().mockResolvedValue({ ok: true });
     Object.defineProperty(window, "lazymindDesktop", {
       configurable: true,
-      value: { agentIntegrationStatuses: desktopStatus },
+      value: { agentIntegrationStatuses: desktopStatus, assistantSessionClear: sessionClear },
     });
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     const result = await agentIntegrationStatuses();
 
     expect(result).toEqual({ ok: true, data: { codex: status } });
+    expect(sessionClear).toHaveBeenCalledOnce();
+    expect(desktopStatus).toHaveBeenCalledOnce();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("updates the Assistant session before reading status through Desktop IPC", async () => {
+    mocks.user.mockReturnValue({ token: "new-access", refreshToken: "new-refresh" });
+    const desktopStatus = vi.fn().mockResolvedValue({ agents: {} });
+    const sessionSet = vi.fn().mockResolvedValue({ ok: true });
+    Object.defineProperty(window, "lazymindDesktop", {
+      configurable: true,
+      value: { agentIntegrationStatuses: desktopStatus, assistantSessionSet: sessionSet },
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await agentIntegrationStatuses();
+
+    expect(sessionSet).toHaveBeenCalledWith(expect.objectContaining({
+      access_token: "new-access", refresh_token: "new-refresh",
+    }));
     expect(desktopStatus).toHaveBeenCalledOnce();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("sends the current web session before reading Agent status", async () => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("Win32");
     mocks.user.mockReturnValue({
       username: "admin",
       token: "access",
@@ -66,6 +88,11 @@ describe("browser Assistant Bridge session synchronization", () => {
       access_token: "access",
       refresh_token: "refresh",
     });
+    const platformHeader = new Headers(init.headers).get(
+      "X-LazyMind-Client-Platform",
+    );
+    expect(platformHeader).not.toBeNull();
+    expect(platformHeader || "").toMatch(/^(windows|darwin|linux)$/);
     expect(fetchMock.mock.calls[1][0]).toBe("http://127.0.0.1:19091/v1/agents");
   });
 
@@ -103,6 +130,7 @@ describe("browser Assistant Bridge session synchronization", () => {
   it("changes one executor permission through the local Bridge", async () => {
     mocks.user.mockReturnValue(null);
     const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         provider: "workbuddy", enabled: false,
       }), { status: 200 }));
@@ -114,7 +142,7 @@ describe("browser Assistant Bridge session synchronization", () => {
       data: { provider: "workbuddy", enabled: false },
     });
     expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
+      2,
       "http://127.0.0.1:19091/v1/executors/workbuddy/disable",
       expect.objectContaining({ method: "POST" }),
     );

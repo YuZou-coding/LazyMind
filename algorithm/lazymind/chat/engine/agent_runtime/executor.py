@@ -11,9 +11,9 @@ import lazyllm.module.stream_helper as _sh
 import lazyllm.tools.agent as _agent_mod
 from lazyllm.tools.agent.toolError import tool_failure
 from lazyllm.tools.agent.base import _write_agent_data
-from lazymind.config import config as _cfg
 from lazymind.chat.engine.tools.infra import CitationResultMiddleware
 from lazymind.chat.engine.tools.session_env import redact_session_env_arguments
+from lazymind.config import config as _cfg
 
 from .context_estimator import estimate_non_history_tokens
 from .models import AgentRole, AgentRunPlan
@@ -26,110 +26,16 @@ from .telemetry import (
     sid,
     telemetry_enabled,
 )
-from .tool_limit_control import tool_limit_decision_coordinator
-
-
-_EXPANDED_BUDGET_TOOLS = {
-    'advance_step',
-    'advance_step_and_hand_off',
-    'create_workflow_draft',
-    'create_subagent',
-}
-_MAX_TOOL_LOG_CHARS = 800
-_RESULT_LOG_KEYS = (
-    'target', 'display_name', 'kind', 'file_id', 'offset', 'end_line',
-    'total_lines', 'eof', 'next_offset', 'limit', 'pattern', 'total',
-    'truncated', 'status', 'filename', 'corpus', 'skipped', 'channels',
+from .tool_call_guard import (
+    ExactRepeatMonitor,
+    FailureRetryPolicy,
+    OneShotNoticeBuffer,
+    ToolExecutionMiddleware,
+    _log_tool_call,
+    _requires_expanded_budget,
+    _summarize_tool_result,
 )
-
-
-def _requires_expanded_budget(tool_name: str) -> bool:
-    """Return whether invoking this tool starts workflow or SubAgent work."""
-    return tool_name in _EXPANDED_BUDGET_TOOLS or tool_name.startswith('trigger_')
-
-
-def _tool_call_session_id() -> str:
-    cfg = lazyllm.globals.get('agentic_config') or {}
-    if isinstance(cfg, dict) and cfg.get('session_id'):
-        return str(cfg['session_id'])
-    try:
-        return str(getattr(lazyllm.globals, '_sid', '') or '')
-    except Exception:
-        return ''
-
-
-def _compact_json(value: Any, limit: int = _MAX_TOOL_LOG_CHARS) -> str:
-    try:
-        text = json.dumps(value, ensure_ascii=False, default=str)
-    except Exception:
-        text = str(value)
-    if len(text) > limit:
-        return text[:limit] + f'...<{len(text) - limit} more chars>'
-    return text
-
-
-def _parse_tool_arguments(function: dict[str, Any]) -> Any:
-    arguments = function.get('arguments', {})
-    if isinstance(arguments, str):
-        try:
-            return json.loads(arguments)
-        except Exception:
-            return arguments
-    return arguments
-
-
-def _summarize_tool_result(result: Any) -> dict[str, Any]:
-    summary: dict[str, Any] = {}
-    if not isinstance(result, dict):
-        summary['result_type'] = type(result).__name__
-        return summary
-    if 'ok' in result:
-        summary['ok'] = result.get('ok')
-    msg = result.get('msg')
-    if msg:
-        summary['msg'] = str(msg)[:240]
-    value = result.get('value') if 'value' in result else result
-    if not isinstance(value, dict):
-        return summary
-    if 'success' in value:
-        summary['success'] = value.get('success')
-    error = value.get('error')
-    if isinstance(error, dict) and error.get('reason'):
-        summary['error'] = str(error.get('reason'))[:240]
-    payload = value.get('result') if isinstance(value.get('result'), dict) else value
-    if not isinstance(payload, dict):
-        return summary
-    for key in _RESULT_LOG_KEYS:
-        if key in payload and payload[key] is not None:
-            summary[key] = payload[key]
-    matches = payload.get('matches')
-    if isinstance(matches, list):
-        summary['match_count'] = len(matches)
-    footer = payload.get('footer')
-    if isinstance(footer, str) and footer.strip():
-        summary['footer'] = footer.strip()[:240]
-    return summary
-
-
-def _format_log_fields(fields: dict[str, Any]) -> str:
-    parts: list[str] = []
-    for key, value in fields.items():
-        if value is None:
-            continue
-        if isinstance(value, (dict, list)):
-            rendered = _compact_json(value, 240)
-        else:
-            rendered = str(value)
-        parts.append(f'[{key}={rendered}]')
-    return ' '.join(parts)
-
-
-def _log_tool_call(event: str, name: str, **fields: Any) -> None:
-    extras = _format_log_fields(fields)
-    suffix = f' {extras}' if extras else ''
-    lazyllm.LOG.info(
-        f'[ToolCall] [sid={_tool_call_session_id()}] [event={event}] [name={name}]{suffix}'
-    )
+from .tool_limit_control import tool_limit_decision_coordinator
 
 
 def _sanitize_tools(tools: list[Any]) -> list[Any]:
@@ -158,6 +64,16 @@ def _sanitize_tools(tools: list[Any]) -> list[Any]:
                 tool = {**tool, 'tools': kept}
         cleaned.append(tool)
     return cleaned
+
+
+def _parse_tool_arguments(function: dict[str, Any]) -> Any:
+    arguments = function.get('arguments', {})
+    if isinstance(arguments, str):
+        try:
+            return json.loads(arguments)
+        except Exception:
+            return arguments
+    return arguments
 
 
 class ToolCallGuard:
@@ -475,7 +391,6 @@ class ToolCallGuard:
                 emit_tool_result(tool_calls[duplicate_index], results[duplicate_index])
         return results
 
-
 def _tool_name(tool: Any) -> str:
     if isinstance(tool, tuple) and len(tool) == 2:
         return _tool_name(tool[0])
@@ -526,10 +441,15 @@ class AgentExecutor:
             )
             if telemetry_enabled() else None
         )
+        repeat_monitor = ExactRepeatMonitor()
+        notice_buffer = OneShotNoticeBuffer()
         kwargs = {
             'stream': True,
             'max_retries': options.max_retries or _cfg['max_retries'],
-            'enable_builtin_tools': bool(_cfg['trusted_local_mode']),
+            'enable_builtin_tools': (
+                bool(_cfg['trusted_local_mode'])
+                if options.enable_builtin_tools is None else options.enable_builtin_tools
+            ),
             'force_summarize': True,
             'force_summarize_context': plan.force_summarize_context,
             'on_max_retries': (
@@ -546,6 +466,7 @@ class AgentExecutor:
             'skills_dir': options.skills_dir,
             'extra_stop_condition': options.extra_stop_condition,
             'runtime_observer': observer,
+            'model_context_provider': notice_buffer.take,
         }
         kwargs.update({key: value for key, value in optional.items() if value is not None})
         tools = _sanitize_tools(_deduplicate_tools(plan.tools))
@@ -557,12 +478,18 @@ class AgentExecutor:
             **kwargs,
         )
         agent._tools_manager = ToolCallGuard(
-            CitationResultMiddleware(agent._tools_manager),
-            options.tool_failure_limits,
-            max(2, int(_cfg['agentic_expanded_max_rounds'])),
-            cancel_check=options.extra_stop_condition,
+            ToolExecutionMiddleware(
+                CitationResultMiddleware(agent._tools_manager),
+                failure_policy=FailureRetryPolicy(options.tool_failure_limits),
+                expanded_round_limit=max(2, int(_cfg['agentic_expanded_max_rounds'])),
+                cancel_check=options.extra_stop_condition,
+                repeat_monitor=repeat_monitor,
+                notice_buffer=notice_buffer,
+            ),
         )
         agent._agent_lab_run_id = run_id
+        agent._exact_repeat_monitor = repeat_monitor
+        agent._runtime_notice_buffer = notice_buffer
         # Restore lazy Toolkit activation before the streaming helper takes over.
         # Relying only on ReactAgent._pre_process makes restoration dependent on
         # llm_chat_history surviving the helper/framework call path.
@@ -600,6 +527,12 @@ class AgentExecutor:
     ) -> AsyncIterator[Tuple[str, Any]]:
         history = plan.history if plan.history else None
         run_id = getattr(agent, '_agent_lab_run_id', '')
+        repeat_monitor = getattr(agent, '_exact_repeat_monitor', None)
+        notice_buffer = getattr(agent, '_runtime_notice_buffer', None)
+        if repeat_monitor is not None:
+            repeat_monitor.reset()
+        if notice_buffer is not None:
+            notice_buffer.clear()
         if telemetry_enabled():
             append_event(
                 'run_start',
@@ -640,6 +573,10 @@ class AgentExecutor:
                 raise
             yield 'final', result
         finally:
+            if repeat_monitor is not None:
+                repeat_monitor.reset()
+            if notice_buffer is not None:
+                notice_buffer.clear()
             if telemetry_enabled():
                 append_event(
                     'run_end',

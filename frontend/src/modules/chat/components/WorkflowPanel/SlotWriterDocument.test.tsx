@@ -23,13 +23,26 @@ vi.mock('./FilePreviewDrawer', () => ({
 
 vi.mock('./MarkdownArtifactEditor', () => ({
   MarkdownArtifactEditor: ({
+    markdown,
     onSave,
     sourceRevision,
+    maxHeight,
+    editingKey,
   }: {
+    markdown: string;
     onSave: (markdown: string, revision: number, mode: 'draft') => Promise<unknown>;
     sourceRevision: number;
+    maxHeight?: number;
+    editingKey?: string;
   }) => (
-    <button type='button' onClick={() => void onSave('# Edited draft', sourceRevision, 'draft')}>
+    <button
+      type='button'
+      data-markdown={markdown}
+      data-source-revision={sourceRevision}
+      data-max-height={maxHeight}
+      data-editing-key={editingKey}
+      onClick={() => void onSave('# Edited draft', sourceRevision, 'draft')}
+    >
       save markdown draft
     </button>
   ),
@@ -78,6 +91,7 @@ function renderedMarkdown(document: string) {
         title: 'Writer document',
         representation: 'markdown',
         document,
+        numbering: { ordered_style: 'hierarchical', entries: {} },
       },
     },
   };
@@ -133,6 +147,77 @@ describe('SlotWriterDocument render refresh', () => {
     });
   });
 
+  it('saves against the selected older revision after rollback', async () => {
+    workflowApi.renderWriterDocument.mockResolvedValue(renderedMarkdown('# Selected document'));
+    workflowApi.saveWriterDocument.mockResolvedValue({
+      data: {
+        code: 0,
+        message: 'ok',
+        data: {
+          title: 'Writer document',
+          representation: 'markdown',
+          document: '# Edited draft',
+          revision: 3,
+        },
+      },
+    });
+    const getSlotVersions = vi.fn().mockResolvedValue([
+      {
+        revision: 1,
+        version: 1,
+        change_source: 'ai',
+        created_at: '2026-08-30T03:12:00Z',
+        selected: false,
+        content_snapshot: '# Initial document',
+      },
+      {
+        revision: 2,
+        version: 2,
+        change_source: 'ai',
+        created_at: '2026-08-30T03:14:03Z',
+        selected: true,
+        content_snapshot: '# Current document',
+      },
+    ]);
+    const rollbackSlotItem = vi.fn().mockResolvedValue(undefined);
+    useWorkflowStore.setState({ getSlotVersions, rollbackSlotItem });
+
+    const { container } = render(
+      <SlotRenderer
+        slot={writerSlot(2)}
+        widget={{ widgetType: 'writer-document' }}
+        sessionId='writer-session'
+        slotId='draft_document'
+        revisionCount={2}
+      />,
+    );
+
+    const saveButton = await screen.findByRole('button', { name: 'save markdown draft' });
+    expect(saveButton).toHaveAttribute('data-source-revision', '2');
+
+    fireEvent.click(container.querySelector<HTMLButtonElement>('.workflow-slot__version-btn')!);
+    await waitFor(() => expect(document.querySelectorAll('.workflow-slot__version-item')).toHaveLength(2));
+    fireEvent.click(document.querySelectorAll<HTMLElement>('.workflow-slot__version-item')[1]);
+    fireEvent.click(document.querySelector<HTMLButtonElement>('.workflow-slot__version-apply-btn')!);
+
+    await waitFor(() => {
+      expect(rollbackSlotItem).toHaveBeenCalledWith('writer-session', 'draft_document', -1, 1);
+      expect(saveButton).toHaveAttribute('data-source-revision', '1');
+    });
+
+    fireEvent.click(saveButton);
+    await waitFor(() => {
+      expect(workflowApi.saveWriterDocument).toHaveBeenCalledWith(
+        'writer-session',
+        1,
+        '# Edited draft',
+        'draft_document',
+        'draft',
+        { silentError: true },
+      );
+    });
+  });
+
   it('does not let a canceled stale request replace the latest successful render', async () => {
     const staleRequest = deferred<ReturnType<typeof renderedMarkdown>>();
     const latestRequest = deferred<ReturnType<typeof renderedMarkdown>>();
@@ -178,6 +263,148 @@ describe('SlotWriterDocument render refresh', () => {
 
     expect(screen.getByText('# latest document')).toBeInTheDocument();
     expect(document.querySelector('.workflow-slot--error')).not.toBeInTheDocument();
+  });
+});
+
+describe('SlotText editing', () => {
+  it('marks json-block slots as their own scroll container', () => {
+    const slot: SlotRevision = {
+      slot_id: 'generation_parameters',
+      revision: 1,
+      selected: true,
+      slot: 'generation_parameters',
+      created_at: '2026-09-01T00:00:00Z',
+      artifact_value: {
+        count_unit: 'chinese_characters',
+        paper_type: 'research',
+        word_target: 1000,
+      },
+      content_type: 'json',
+    };
+
+    const { container } = render(
+      <SlotRenderer
+        slot={slot}
+        widget={{ widgetType: 'json-block', readOnly: true, collapsed: false }}
+        sessionId='academic-session'
+        slotId='generation_parameters'
+        readOnly
+      />,
+    );
+
+    expect(container.querySelector('.workflow-slot--json-block')).toBeInTheDocument();
+    expect(screen.getByText(/chinese_characters/)).toBeInTheDocument();
+  });
+
+  it('reuses the Markdown editor and saves through the text-slot revision contract', async () => {
+    const patchSlotItemValue = vi.fn().mockResolvedValue(2);
+    useWorkflowStore.setState({ patchSlotItemValue });
+    const slot: SlotRevision = {
+      slot_id: 'materials_summary',
+      revision: 1,
+      selected: true,
+      slot: 'materials_summary',
+      created_at: '2026-08-31T00:00:00Z',
+      artifact_value: { text: '# Initial Markdown' },
+      content_type: 'text',
+    };
+
+    render(
+      <SlotRenderer
+        slot={slot}
+        widget={{ widgetType: 'text-markdown', maxHeight: 680 }}
+        sessionId='materials-session'
+        slotId='materials_summary'
+      />,
+    );
+
+    const editor = screen.getByRole('button', { name: 'save markdown draft' });
+    expect(editor).toHaveAttribute('data-markdown', '# Initial Markdown');
+    expect(editor).toHaveAttribute('data-source-revision', '1');
+    expect(editor).toHaveAttribute('data-max-height', '680');
+    expect(editor).toHaveAttribute(
+      'data-editing-key',
+      'materials-session:materials_summary:-1:markdown',
+    );
+
+    fireEvent.click(editor);
+
+    await waitFor(() => {
+      expect(patchSlotItemValue).toHaveBeenCalledWith(
+        'materials-session',
+        'materials_summary',
+        -1,
+        { text: '# Edited draft' },
+        'text',
+        'draft',
+        1,
+      );
+      expect(editor).toHaveAttribute('data-source-revision', '2');
+    });
+  });
+
+  it('keeps the preview footprint and focuses the clicked plain text', () => {
+    const text = '## First line\n\n**middle target**\n\nlast line';
+    const targetOffset = text.indexOf('middle target') + 7;
+    const slot: SlotRevision = {
+      slot_id: 'materials_summary',
+      revision: 1,
+      selected: true,
+      slot: 'materials_summary',
+      created_at: '2026-08-31T00:00:00Z',
+      artifact_value: { text },
+      content_type: 'text',
+    };
+    const { container } = render(
+      <div className='workflow-panel__tab-content'>
+        <SlotRenderer
+          slot={slot}
+          widget={{ widgetType: 'text-single' }}
+          sessionId='materials-session'
+          slotId='materials_summary'
+        />
+      </div>,
+    );
+    const scrollContainer = container.querySelector<HTMLElement>('.workflow-panel__tab-content')!;
+    const slotElement = container.querySelector<HTMLElement>('.workflow-slot--text')!;
+    const preview = container.querySelector<HTMLElement>('.workflow-slot__text--editable')!;
+    const renderedTextNode = preview.firstChild!;
+    renderedTextNode.textContent = 'middle target';
+    scrollContainer.scrollTop = 84;
+    vi.spyOn(preview, 'getBoundingClientRect').mockReturnValue({
+      x: 10,
+      y: 100,
+      top: 100,
+      left: 10,
+      right: 410,
+      bottom: 420,
+      width: 400,
+      height: 320,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(slotElement, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 90,
+      top: 90,
+      left: 0,
+      right: 600,
+      bottom: 450,
+      width: 600,
+      height: 360,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+      configurable: true,
+      value: () => ({ offsetNode: renderedTextNode, offset: 7 }),
+    });
+
+    fireEvent.click(preview, { clientX: 120, clientY: 240 });
+
+    const editor = container.querySelector<HTMLTextAreaElement>('.workflow-slot__text-editor')!;
+    expect(editor).toHaveStyle({ height: '360px', minHeight: '360px' });
+    expect(editor.selectionStart).toBe(targetOffset);
+    expect(document.activeElement).toBe(editor);
+    expect(scrollContainer.scrollTop).toBe(84);
   });
 });
 

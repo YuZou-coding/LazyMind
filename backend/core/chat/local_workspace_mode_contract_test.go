@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	localWorkspaceModeForbiddenCode = 2002321
-	localWorkspaceNotFoundCode      = 2002326
-	localWorkspaceRevokedCode       = 2002327
-	localWorkspaceBindingLockedCode = 2002328
+	localWorkspaceModeForbiddenCode = 2002370
+	localWorkspaceNotFoundCode      = 2002375
+	localWorkspaceRevokedCode       = 2002376
+	localWorkspaceBindingLockedCode = 2002377
 )
 
 func requireWorkspaceContractError(t *testing.T, recorder *httptest.ResponseRecorder, status, code int) {

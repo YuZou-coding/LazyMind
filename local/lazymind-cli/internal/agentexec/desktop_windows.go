@@ -10,18 +10,42 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+type windowsInstalledApplication struct {
+	displayName string
+	location    string
+}
+
 func platformDesktopInstalled(spec DesktopApplication, _ bool) bool {
+	return platformDesktopApplication(spec) != "" || hasInstalledApplication(spec.DisplayNames)
+}
+
+func platformDesktopApplication(spec DesktopApplication) string {
 	for _, name := range spec.ExecutableNames {
-		if appPath(name) != "" {
-			return true
+		if executable := appPath(name); executable != "" {
+			return executable
 		}
 	}
 	for _, protocol := range spec.Protocols {
-		if registeredProtocolExecutable(protocol) != "" {
-			return true
+		if executable := registeredProtocolExecutable(protocol); executable != "" {
+			return executable
 		}
 	}
-	return hasInstalledApplication(spec.DisplayNames)
+	for _, application := range windowsInstalledApplications() {
+		if !matchesInstalledDisplayName(application.displayName, normalizedDisplayNames(spec.DisplayNames)) {
+			continue
+		}
+		if fileExists(application.location) {
+			return filepath.Clean(application.location)
+		}
+		if directoryExists(application.location) {
+			for _, name := range spec.ExecutableNames {
+				if executable := firstExecutablePath(filepath.Join(application.location, name), windowsPathExtensions()); executable != "" {
+					return executable
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func registeredProtocolExecutable(protocol string) string {
@@ -44,13 +68,31 @@ func hasInstalledApplication(displayNames []string) bool {
 	if len(displayNames) == 0 {
 		return false
 	}
+	wanted := normalizedDisplayNames(displayNames)
+	for _, application := range windowsInstalledApplications() {
+		if !matchesInstalledDisplayName(application.displayName, wanted) {
+			continue
+		}
+		if directoryExists(application.location) || fileExists(application.location) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizedDisplayNames(displayNames []string) []string {
 	wanted := make([]string, 0, len(displayNames))
 	for _, name := range displayNames {
 		if name = strings.ToLower(strings.TrimSpace(name)); name != "" {
 			wanted = append(wanted, name)
 		}
 	}
+	return wanted
+}
+
+func windowsInstalledApplications() []windowsInstalledApplication {
 	const uninstallPath = `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`
+	var applications []windowsInstalledApplication
 	for _, root := range []registry.Key{registry.CURRENT_USER, registry.LOCAL_MACHINE} {
 		for _, view := range []uint32{registry.WOW64_64KEY, registry.WOW64_32KEY} {
 			key, err := registry.OpenKey(root, uninstallPath, registry.ENUMERATE_SUB_KEYS|view)
@@ -65,18 +107,24 @@ func hasInstalledApplication(displayNames []string) bool {
 			for _, name := range names {
 				entry := uninstallPath + `\` + name
 				displayName := strings.ToLower(strings.TrimSpace(registryString(root, entry, "DisplayName", view)))
-				if !matchesInstalledDisplayName(displayName, wanted) {
+				if displayName == "" {
 					continue
 				}
-				if directoryExists(registryString(root, entry, "InstallLocation", view)) ||
-					fileExists(commandExecutable(registryString(root, entry, "DisplayIcon", view))) ||
-					fileExists(commandExecutable(registryString(root, entry, "UninstallString", view))) {
-					return true
+				location := strings.TrimSpace(registryString(root, entry, "InstallLocation", view))
+				if location == "" {
+					if executable := commandExecutable(registryString(root, entry, "DisplayIcon", view)); executable != "" {
+						location = filepath.Dir(executable)
+					} else if executable := commandExecutable(registryString(root, entry, "UninstallString", view)); executable != "" {
+						location = executable
+					}
 				}
+				applications = append(applications, windowsInstalledApplication{
+					displayName: displayName, location: location,
+				})
 			}
 		}
 	}
-	return false
+	return applications
 }
 
 func matchesInstalledDisplayName(displayName string, wanted []string) bool {

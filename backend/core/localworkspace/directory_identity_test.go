@@ -68,7 +68,7 @@ func TestValidateCurrentDirectoryPermanentlyMarksReplacementUnavailable(t *testi
 	}
 	err = ValidateCurrentDirectory(t.Context(), db, row)
 	appErr, ok := err.(*common.AppError)
-	if !ok || appErr.Code != 2002330 {
+	if !ok || appErr.Code != 2002379 {
 		t.Fatalf("expected path unavailable app error, got %#v", err)
 	}
 	var stored orm.LocalWorkspace

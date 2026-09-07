@@ -25,6 +25,7 @@ const {
 } = require("./installer-warmup");
 const { clearFrontendCaches } = require("./frontend-cache");
 const { installExternalNavigationHandler } = require("./external-navigation");
+const { waitForRendererWithRuntimeRecovery } = require("./renderer-recovery");
 const {
   collapseRoots,
   containsPath,
@@ -537,7 +538,7 @@ function runAgentConnector(agent, action) {
     all: new Set(["status"]),
     codex: new Set(["connect", "status", "disconnect", "login"]),
     cursor: new Set(["connect", "status", "disconnect", "login"]),
-    workbuddy: new Set(["connect", "status", "disconnect"]),
+    workbuddy: new Set(["connect", "status", "disconnect", "login"]),
     raccoon: new Set(["connect", "status", "disconnect"]),
     traework: new Set(["connect", "status", "disconnect"]),
     "deepseek-harness": new Set(["connect", "status", "disconnect"]),
@@ -636,9 +637,9 @@ function restartAgentHost() {
   }
 }
 
-function runConnectorJSON(args, timeout) {
+function runConnectorJSON(args, timeout, input) {
   return new Promise((resolve, reject) => {
-    execFile(agentConnectorPath, args, {
+    const child = execFile(agentConnectorPath, args, {
       env: sidecarEnv(),
       timeout,
       windowsHide: isWindows,
@@ -654,6 +655,9 @@ function runConnectorJSON(args, timeout) {
         reject(new Error(`LazyMind connector returned invalid JSON: ${parseError.message}`));
       }
     });
+    if (input !== undefined) {
+      child.stdin?.end(`${JSON.stringify(input)}\n`);
+    }
   });
 }
 
@@ -677,7 +681,9 @@ function startAgentHost() {
   }
   clearTimeout(agentHostRestartTimer);
   agentHostRestartTimer = undefined;
-  const child = spawn(agentConnectorPath, ["agent", "host", "run", "--provider", "all"], {
+  const child = spawn(agentConnectorPath, [
+    "agent", "host", "run", "--provider", "all", "--owner-pid", String(process.pid),
+  ], {
     env: sidecarEnv(),
     stdio: ["ignore", "ignore", "pipe"],
     detached: false,
@@ -1826,6 +1832,9 @@ function createRendererReadyWait(window) {
   return {
     window,
     promise,
+    isPending() {
+      return !settled;
+    },
     notify() {
       if (settled) return;
       settled = true;
@@ -1841,10 +1850,48 @@ function createRendererReadyWait(window) {
   };
 }
 
+function createHiddenRendererAttempt(frontendPort) {
+  const window = new BrowserWindow(browserWindowOptions(false));
+  attachExternalNavigationHandler(window);
+  mainWindow = window;
+  window.once("closed", () => {
+    if (mainWindow === window) {
+      mainWindow = undefined;
+    }
+  });
+  startupMetricsRecorder.mark("mainWindowCreated");
+  attachManagedClose(window);
+  const readyWait = createRendererReadyWait(window);
+  rendererReadyWait = readyWait;
+  startupMetricsRecorder.mark("frontendLoadStarted");
+  const ready = Promise.all([
+    window.loadURL(`http://127.0.0.1:${frontendPort}/agent/chat/home`),
+    readyWait.promise,
+  ]);
+  return {
+    window,
+    readyWait,
+    ready,
+    isPending: () => readyWait.isPending(),
+    dispose: async () => {
+      readyWait.cancel();
+      if (rendererReadyWait === readyWait) {
+        rendererReadyWait = undefined;
+      }
+      if (!window.isDestroyed()) {
+        window.removeAllListeners("close");
+        window.destroy();
+      }
+      if (mainWindow === window) {
+        mainWindow = undefined;
+      }
+    },
+  };
+}
+
 async function createWindow() {
   const nextStartupWindow = new BrowserWindow(browserWindowOptions(true));
-  let nextMainWindow;
-  let nextRendererReadyWait;
+  let latestRendererAttempt;
   startupWindow = nextStartupWindow;
   nextStartupWindow.once("closed", () => {
     if (startupWindow === nextStartupWindow) {
@@ -1867,39 +1914,47 @@ async function createWindow() {
     if (isQuitting || windowHiddenByUser || nextStartupWindow.isDestroyed()) {
       return;
     }
-    nextMainWindow = new BrowserWindow(browserWindowOptions(false));
     startAgentHost();
-    attachExternalNavigationHandler(nextMainWindow);
-    mainWindow = nextMainWindow;
-    nextMainWindow.once("closed", () => {
-      if (mainWindow === nextMainWindow) {
-        mainWindow = undefined;
-      }
+    const runtimeReadyPromise = waitForRuntimeReady();
+    const readyRendererAttempt = await waitForRendererWithRuntimeRecovery({
+      startAttempt: async () => {
+        latestRendererAttempt = createHiddenRendererAttempt(status.config.frontendPort);
+        return latestRendererAttempt;
+      },
+      runtimeReady: runtimeReadyPromise,
+      shouldRecover: () => !isQuitting && !windowHiddenByUser && !nextStartupWindow.isDestroyed(),
+      onRecovery: async (reason) => {
+        appendStartupLog(
+          "desktop",
+          `runtime ready while frontend remained unavailable (${reason}); recreating hidden frontend window once`,
+        );
+        updateStartupState({
+          status: "starting",
+          phase: "Reloading interface",
+          message: "Services are ready. Reloading LazyMind...",
+          progress: null,
+        });
+      },
     });
-    startupMetricsRecorder.mark("mainWindowCreated");
-    attachManagedClose(nextMainWindow);
-    nextRendererReadyWait = createRendererReadyWait(nextMainWindow);
-    rendererReadyWait = nextRendererReadyWait;
-    startupMetricsRecorder.mark("frontendLoadStarted");
-    await Promise.all([
-      nextMainWindow.loadURL(`http://127.0.0.1:${status.config.frontendPort}/agent/chat/home`),
-      nextRendererReadyWait.promise,
-    ]);
-    nextRendererReadyWait.cancel();
-    if (rendererReadyWait === nextRendererReadyWait) {
+    if (!readyRendererAttempt) {
+      return;
+    }
+    latestRendererAttempt = readyRendererAttempt;
+    readyRendererAttempt.readyWait.cancel();
+    if (rendererReadyWait === readyRendererAttempt.readyWait) {
       rendererReadyWait = undefined;
     }
-    if (isQuitting || windowHiddenByUser || nextMainWindow.isDestroyed()) {
+    if (isQuitting || windowHiddenByUser || readyRendererAttempt.window.isDestroyed()) {
       return;
     }
     nextStartupWindow.removeAllListeners("close");
     nextStartupWindow.hide();
-    nextMainWindow.show();
+    readyRendererAttempt.window.show();
     startupMetricsRecorder.mark("mainWindowVisible");
-    nextMainWindow.focus();
+    readyRendererAttempt.window.focus();
     appendStartupLog("desktop", "frontend window ready");
     nextStartupWindow.destroy();
-    void waitForRuntimeReady().then(
+    void runtimeReadyPromise.then(
       () => finishStartupMetrics("success"),
       (error) => {
         if (!isQuitting) {
@@ -1908,17 +1963,7 @@ async function createWindow() {
       },
     );
   } catch (error) {
-    nextRendererReadyWait?.cancel();
-    if (rendererReadyWait === nextRendererReadyWait) {
-      rendererReadyWait = undefined;
-    }
-    if (nextMainWindow && !nextMainWindow.isDestroyed()) {
-      nextMainWindow.removeAllListeners("close");
-      nextMainWindow.destroy();
-    }
-    if (mainWindow === nextMainWindow) {
-      mainWindow = undefined;
-    }
+    await latestRendererAttempt?.dispose();
     if (windowHiddenByUser && !isQuitting) {
       return;
     }
@@ -1945,6 +1990,10 @@ ipcMain.handle("lazymind:executorIntegrationAction", (_event, provider, action) 
 ipcMain.handle("lazymind:agentExecutableBindings", () => readAgentBindings());
 ipcMain.handle("lazymind:agentExecutableBind", (_event, target, executablePath) => runAgentBinding(target, "set", executablePath));
 ipcMain.handle("lazymind:agentExecutableClear", (_event, target) => runAgentBinding(target, "clear"));
+ipcMain.handle("lazymind:assistantSessionSet", (_event, value) =>
+  runConnectorJSON(["internal", "session", "set"], agentConnectorActionTimeoutMs, value));
+ipcMain.handle("lazymind:assistantSessionClear", () =>
+  runConnectorJSON(["internal", "session", "clear"], agentConnectorActionTimeoutMs));
 ipcMain.handle("lazymind:restartRuntime", async () => {
   return restartRuntimeAfterFolderAccessChange();
 });
