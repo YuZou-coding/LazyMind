@@ -25,7 +25,7 @@ def task_workspace_sources(sources: Any) -> list[dict[str, Any]]:
         deepcopy(source)
         for source in (sources or [])
         if (
-            isinstance(source, dict) and source.get('workspace_id') and
-            source.get('relative_paths') is True
+            isinstance(source, dict) and source.get('workspace_id')
+            and source.get('relative_paths') is True
         )
     ]

@@ -164,8 +164,8 @@ class ToolCallGuard:
         permission_mode: str,
     ) -> Any:
         if not (
-            isinstance(result, dict) and result.get('ok') is False and
-            result.get('needs_approval') is True
+            isinstance(result, dict) and result.get('ok') is False
+            and result.get('needs_approval') is True
         ):
             return result
         function = tool_call.get('function') or {}
@@ -390,6 +390,7 @@ class ToolCallGuard:
             if results[duplicate_index] is not None:
                 emit_tool_result(tool_calls[duplicate_index], results[duplicate_index])
         return results
+
 
 def _tool_name(tool: Any) -> str:
     if isinstance(tool, tuple) and len(tool) == 2:

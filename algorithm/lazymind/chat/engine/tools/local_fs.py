@@ -170,11 +170,11 @@ class LocalFileToolkit:
         if not response.ok or not isinstance(data, dict):
             raise ToolExecutionError('Workspace authorization is no longer active')
         if (
-            str(data.get('workspace_id') or '') != scope.workspace_id or
-            int(data.get('workspace_version') or 0) != int(scope.workspace_version or 0) or
-            str(data.get('permission_mode') or '') != scope.workspace_permission_mode or
-            int(data.get('permission_version') or 0) != int(scope.workspace_permission_version or 0) or
-            os.path.realpath(str(data.get('root_path') or '')) != os.path.realpath(scope.roots[0])
+            str(data.get('workspace_id') or '') != scope.workspace_id
+            or int(data.get('workspace_version') or 0) != int(scope.workspace_version or 0)
+            or str(data.get('permission_mode') or '') != scope.workspace_permission_mode
+            or int(data.get('permission_version') or 0) != int(scope.workspace_permission_version or 0)
+            or os.path.realpath(str(data.get('root_path') or '')) != os.path.realpath(scope.roots[0])
         ):
             raise ToolExecutionError('Workspace authorization changed; start a new operation')
 
@@ -201,8 +201,8 @@ class LocalFileToolkit:
         relative_only = all(scope.relative_paths for scope in scopes)
         if relative_only and not allow_internal_absolute:
             if (
-                os.path.isabs(target) or portable_target.startswith('//') or
-                re.match(r'^[A-Za-z]:($|/)', portable_target)
+                os.path.isabs(target) or portable_target.startswith('//')
+                or re.match(r'^[A-Za-z]:($|/)', portable_target)
             ):
                 raise ToolExecutionError('Workspace paths must be relative')
             if any(part == '..' for part in portable_target.split('/')):
@@ -361,8 +361,8 @@ class LocalFileToolkit:
                 while chunk := os.read(verify_fd, 1024 * 1024):
                     verify_digest.update(chunk)
                 if (
-                    verify_digest.hexdigest() != expected_version or
-                    (verify_stat.st_dev, verify_stat.st_ino) != (current_stat.st_dev, current_stat.st_ino)
+                    verify_digest.hexdigest() != expected_version
+                    or (verify_stat.st_dev, verify_stat.st_ino) != (current_stat.st_dev, current_stat.st_ino)
                 ):
                     raise ToolExecutionError(
                         'File version conflict; read the file again before modifying it'
@@ -636,9 +636,9 @@ class LocalFileToolkit:
         if name in _SENSITIVE_ENV_EXAMPLES:
             return False
         return (
-            name in _SENSITIVE_EXACT or name.startswith('.env.') or
-            name.startswith('service-account') and name.endswith('.json') or
-            name.endswith(_SENSITIVE_SUFFIXES)
+            name in _SENSITIVE_EXACT or name.startswith('.env.')
+            or name.startswith('service-account') and name.endswith('.json')
+            or name.endswith(_SENSITIVE_SUFFIXES)
         )
 
     def _sensitive_read_allowed(self, path: str, scope: LocalFSScope) -> bool:
@@ -653,9 +653,9 @@ class LocalFileToolkit:
     def _permission_mode(scope: LocalFSScope) -> str:
         config = lazyllm.globals.get('agentic_config') or {}
         mode = str(
-            config.get('workspace_permission_mode') or
-            scope.workspace_permission_mode or
-            'ask_as_needed'
+            config.get('workspace_permission_mode')
+            or scope.workspace_permission_mode
+            or 'ask_as_needed'
         )
         return mode if mode in {'always_ask', 'ask_as_needed', 'allow_all'} else 'ask_as_needed'
 

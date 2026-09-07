@@ -91,8 +91,8 @@ def _revalidate_task_workspace(root: str) -> None:
     if not source:
         return
     core_url = str(
-        os.environ.get('LAZYMIND_CORE_API_URL') or
-        os.environ.get('LAZYMIND_CORE_SERVICE_URL') or ''
+        os.environ.get('LAZYMIND_CORE_API_URL')
+        or os.environ.get('LAZYMIND_CORE_SERVICE_URL') or ''
     ).strip().rstrip('/')
     token = os.environ.get('LAZYMIND_LOCAL_WORKSPACE_HOST_TOKEN', '').strip()
     user_id = str(config.get('user_id') or '').strip()
@@ -125,13 +125,13 @@ def _revalidate_task_workspace(root: str) -> None:
         raise ToolExecutionError('Workspace authorization is no longer active') from exc
     data = body.get('data') if isinstance(body, dict) else None
     if not isinstance(data, dict) or (
-        str(data.get('workspace_id') or '') != str(source.get('workspace_id') or '') or
-        int(data.get('workspace_version') or 0) != int(source.get('workspace_version') or 0) or
-        str(data.get('permission_mode') or '') != str(
+        str(data.get('workspace_id') or '') != str(source.get('workspace_id') or '')
+        or int(data.get('workspace_version') or 0) != int(source.get('workspace_version') or 0)
+        or str(data.get('permission_mode') or '') != str(
             source.get('workspace_permission_mode') or 'ask_as_needed'
-        ) or
-        int(data.get('permission_version') or 0) != int(source.get('workspace_permission_version') or 0) or
-        os.path.realpath(str(data.get('root_path') or '')) != root
+        )
+        or int(data.get('permission_version') or 0) != int(source.get('workspace_permission_version') or 0)
+        or os.path.realpath(str(data.get('root_path') or '')) != root
     ):
         raise ToolExecutionError('Workspace authorization changed; start a new operation')
 
@@ -142,7 +142,7 @@ def _stop_process_tree(process: subprocess.Popen) -> None:
             os.killpg(process.pid, signal.SIGKILL)
         else:
             process.kill()
-    except (OSError, ProcessLookupError):
+    except OSError:
         pass
 
 
@@ -339,9 +339,9 @@ def _workspace_context() -> tuple[str, str]:
     if len(sources) != 1 or len(roots) != 1:
         raise ToolExecutionError('Exactly one authorized task workspace is required')
     mode = str(
-        config.get('workspace_permission_mode') or
-        sources[0].get('workspace_permission_mode') or
-        'ask_as_needed'
+        config.get('workspace_permission_mode')
+        or sources[0].get('workspace_permission_mode')
+        or 'ask_as_needed'
     )
     if mode not in {'always_ask', 'ask_as_needed', 'allow_all'}:
         mode = 'ask_as_needed'
@@ -428,17 +428,17 @@ def shell_tool(
     executable = os.path.basename(argv[0]).lower()
     normalized_command = ' '.join(argv).lower()
     destructive_git = executable in {'git', 'git.exe'} and (
-        ' reset --hard' in f' {normalized_command}' or
-        ' clean -' in f' {normalized_command}' or
-        (' config ' in f' {normalized_command}' and '--global' in argv)
+        ' reset --hard' in f' {normalized_command}'
+        or ' clean -' in f' {normalized_command}'
+        or (' config ' in f' {normalized_command}' and '--global' in argv)
     )
     if executable in _PERMANENTLY_DENIED or destructive_git:
         raise ToolExecutionError('Command is permanently denied')
     requested_cwd = str(cwd or '.').strip()
     portable_cwd = requested_cwd.replace('\\', '/')
     if (
-        '\x00' in requested_cwd or os.path.isabs(requested_cwd) or
-        portable_cwd.startswith('//') or re.match(r'^[A-Za-z]:($|/)', portable_cwd)
+        '\x00' in requested_cwd or os.path.isabs(requested_cwd)
+        or portable_cwd.startswith('//') or re.match(r'^[A-Za-z]:($|/)', portable_cwd)
     ):
         raise ToolExecutionError('Command cwd must be workspace-relative')
     if any(part == '..' for part in portable_cwd.split('/')):

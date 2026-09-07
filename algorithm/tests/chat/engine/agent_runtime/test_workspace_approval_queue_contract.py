@@ -16,22 +16,22 @@ class MemoryQueue:
 
 def test_workspace_approvals_accept_only_allow_once_or_deny_and_are_idempotent(monkeypatch):
     queue = MemoryQueue()
-    monkeypatch.setattr(tool_limit_control, "FileSystemQueue", lambda **_kwargs: queue)
+    monkeypatch.setattr(tool_limit_control, 'FileSystemQueue', lambda **_kwargs: queue)
     coordinator = ToolLimitDecisionCoordinator()
-    coordinator._register("sid-1", "decision-1")
+    coordinator._register('sid-1', 'decision-1')
 
-    assert coordinator.submit("sid-1", "decision-1", "allow_once") is True
-    assert coordinator.submit("sid-1", "decision-1", "allow_once") is True
-    assert [json.loads(item)["action"] for item in queue.items] == ["allow_once"]
+    assert coordinator.submit('sid-1', 'decision-1', 'allow_once') is True
+    assert coordinator.submit('sid-1', 'decision-1', 'allow_once') is True
+    assert [json.loads(item)['action'] for item in queue.items] == ['allow_once']
 
 
 def test_two_workspace_approvals_for_one_task_are_fifo(monkeypatch):
     queue = MemoryQueue()
-    monkeypatch.setattr(tool_limit_control, "FileSystemQueue", lambda **_kwargs: queue)
+    monkeypatch.setattr(tool_limit_control, 'FileSystemQueue', lambda **_kwargs: queue)
     coordinator = ToolLimitDecisionCoordinator()
-    coordinator._register("sid-1", "decision-1")
-    coordinator._register("sid-1", "decision-2")
+    coordinator._register('sid-1', 'decision-1')
+    coordinator._register('sid-1', 'decision-2')
 
-    assert coordinator.submit("sid-1", "decision-1", "deny") is True
-    assert coordinator.submit("sid-1", "decision-2", "allow_once") is True
-    assert [json.loads(item)["decision_id"] for item in queue.items] == ["decision-1", "decision-2"]
+    assert coordinator.submit('sid-1', 'decision-1', 'deny') is True
+    assert coordinator.submit('sid-1', 'decision-2', 'allow_once') is True
+    assert [json.loads(item)['decision_id'] for item in queue.items] == ['decision-1', 'decision-2']

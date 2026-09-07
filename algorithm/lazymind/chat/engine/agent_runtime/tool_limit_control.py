@@ -46,8 +46,8 @@ class ToolLimitDecisionCoordinator:
             completed = self._completed_decisions.get((sid, decision_id))
             if completed is not None:
                 return (
-                    normalized_action in {'allow_once', 'deny'} and
-                    completed == normalized_action
+                    normalized_action in {'allow_once', 'deny'}
+                    and completed == normalized_action
                 )
             pending = self._active_decisions.get(sid, [])
             if not pending or pending[0] != decision_id:
@@ -72,8 +72,8 @@ class ToolLimitDecisionCoordinator:
                 candidate_sid
                 for candidate_sid, pending in self._active_decisions.items()
                 if (
-                    pending and pending[0] == decision_id and
-                    self._decision_owners.get((candidate_sid, decision_id)) == owner
+                    pending and pending[0] == decision_id
+                    and self._decision_owners.get((candidate_sid, decision_id)) == owner
                 )
             ), '')
         return bool(sid) and self.submit(sid, decision_id, action)
