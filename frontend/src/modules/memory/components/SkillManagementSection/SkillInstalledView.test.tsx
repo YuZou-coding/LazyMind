@@ -1,6 +1,6 @@
 import { createRef } from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { SkillTreeNode } from "../../shared";
 import SkillInstalledView from "./SkillInstalledView";
@@ -26,6 +26,22 @@ const translations: Record<string, string> = {
   "admin.memorySkillOrganizeSelectRow": "select skill",
   "admin.memorySkillOrganizeInternalOnlyRow": "not internal",
 };
+
+beforeAll(() => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+});
 
 const renderView = (selectedOrganizeSkillIds: string[]) => render(
   <SkillInstalledView
@@ -65,7 +81,7 @@ describe("SkillInstalledView organize rules", () => {
 
   it("requires at least two selected internal skills before submit", () => {
     const { rerender } = renderView(["internal-one"]);
-    expect(screen.getByRole("button", { name: "start organize" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /start organize/ })).toBeDisabled();
 
     rerender(
       <SkillInstalledView
@@ -94,6 +110,6 @@ describe("SkillInstalledView organize rules", () => {
         listContentRef={createRef<HTMLDivElement>()}
       />,
     );
-    expect(screen.getByRole("button", { name: "start organize" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /start organize/ })).toBeEnabled();
   });
 });

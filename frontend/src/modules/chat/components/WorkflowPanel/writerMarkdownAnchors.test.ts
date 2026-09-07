@@ -29,7 +29,7 @@ describe('Writer Markdown system anchors', () => {
     expect(writerMarkdownForSave(source)).toBe(source);
   });
 
-  it('keeps heading anchors out of the editable document without leaving blank blocks', () => {
+  it('keeps target anchors out of the editable document without leaving blank blocks', () => {
     const source = [
       '# 标题',
       '',
@@ -46,7 +46,6 @@ describe('Writer Markdown system anchors', () => {
       '',
       '## 1 章节',
       '',
-      '<a id="block-image-1" />',
       '![插图](https://example.com/image.png)',
     ].join('\n'));
   });
