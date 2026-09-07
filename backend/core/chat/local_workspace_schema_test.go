@@ -74,9 +74,22 @@ func TestConversationWorkspaceBindingSchemaKeepsOneWorkspacePerTask(t *testing.T
 		t.Fatalf("read binding indexes: %v", err)
 	}
 	unique := false
+	columnTypes, err := database.DB.Migrator().ColumnTypes("conversation_workspace_bindings")
+	if err != nil {
+		t.Fatalf("read binding columns: %v", err)
+	}
+	// PostgreSQL GetIndexes excludes indexes backing PRIMARY KEY constraints.
+	primaryColumns := []string{}
+	for _, column := range columnTypes {
+		if primary, ok := column.PrimaryKey(); ok && primary {
+			primaryColumns = append(primaryColumns, column.Name())
+		}
+	}
+	unique = len(primaryColumns) == 1 && primaryColumns[0] == "conversation_id"
 	for _, index := range indexes {
 		isUnique, ok := index.Unique()
-		if ok && isUnique {
+		columns := index.Columns()
+		if ok && isUnique && len(columns) == 1 && columns[0] == "conversation_id" {
 			unique = true
 		}
 	}
