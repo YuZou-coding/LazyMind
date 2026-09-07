@@ -16,7 +16,6 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass
 import errno
-from contextlib import contextmanager
 import fnmatch
 import glob as _glob
 import hashlib
@@ -24,7 +23,6 @@ import json
 import os
 import re
 import secrets
-import shlex
 import shutil
 import stat
 import subprocess
@@ -34,13 +32,18 @@ from typing import Any, Dict, List, Optional
 import lazyllm
 import requests
 from lazyllm.tools.agent import ToolExecutionError
-from lazyllm.tools.agent.shell_tool import shell_tool
 
 from lazymind.config import config as _cfg
 from lazymind.chat.engine.tools.text_edit import (
     build_exact_replacement,
     replace_exact_text_file,
     write_file_atomically,
+)
+from lazymind.chat.engine.tools.workspace_win32 import (
+    WorkspaceWin32Error,
+    lock_workspace_path as lock_win32_workspace_path,
+    lock_workspace_parent as lock_win32_workspace_parent,
+    open_workspace_file as open_win32_workspace_file,
 )
 
 _RG_BINARY = shutil.which('rg') or ''
@@ -57,71 +60,10 @@ _WRITE_LOCKS_GUARD = threading.Lock()
 _WRITE_LOCKS: Dict[str, threading.RLock] = {}
 
 
-def _local_write_lock(path: str) -> threading.RLock:
+def _write_lock(path: str) -> threading.RLock:
     key = os.path.normcase(os.path.realpath(path))
     with _WRITE_LOCKS_GUARD:
         return _WRITE_LOCKS.setdefault(key, threading.RLock())
-
-
-def _workspace_lock_payload(scope: 'LocalFSScope', relative_path: str) -> Dict[str, Any]:
-    config = lazyllm.globals.get('agentic_config') or {}
-    actor_type = 'sub_agent' if config.get('is_subagent') else str(config.get('actor_type') or 'main_agent')
-    return {
-        'workspace_id': scope.workspace_id,
-        'workspace_version': scope.workspace_version,
-        'permission_version': scope.workspace_permission_version,
-        'user_id': str(config.get('user_id') or ''),
-        'conversation_id': str(config.get('conversation_id') or ''),
-        'execution_id': str(config.get('run_id') or config.get('session_id') or ''),
-        'actor_type': actor_type,
-        'actor_id': str(config.get('subagent_task_id') or config.get('agent_type') or actor_type),
-        'relative_path': relative_path.replace('\\', '/'),
-    }
-
-
-@contextmanager
-def _write_lock(path: str, scope: Optional['LocalFSScope'] = None):
-    with _local_write_lock(path):
-        if not scope or not scope.workspace_id:
-            yield
-            return
-        broker_url = os.environ.get('LAZYMIND_LOCAL_WORKSPACE_BROKER_URL', '').strip().rstrip('/')
-        token = os.environ.get('LAZYMIND_LOCAL_WORKSPACE_HOST_TOKEN', '').strip()
-        relative = os.path.relpath(path, os.path.realpath(scope.roots[0]))
-        payload = _workspace_lock_payload(scope, relative)
-        if not broker_url or not token or not all(payload.values()):
-            raise ToolExecutionError('Workspace write broker is unavailable')
-        headers = {'X-LazyMind-Local-Workspace-Token': token}
-        lease_id = ''
-        try:
-            with requests.sessions.Session() as session:
-                session.trust_env = False
-                response = session.post(
-                    f'{broker_url}/_local/workspace-write-locks:acquire',
-                    json=payload,
-                    headers=headers,
-                    timeout=35,
-                )
-                body = response.json() if response.ok else {}
-                lease_id = str(body.get('lease_id') or '') if isinstance(body, dict) else ''
-            if not response.ok or not lease_id:
-                raise ToolExecutionError('Workspace write lock could not be acquired')
-            yield
-        except requests.RequestException as exc:
-            raise ToolExecutionError('Workspace write broker is unavailable') from exc
-        finally:
-            if lease_id:
-                try:
-                    with requests.sessions.Session() as session:
-                        session.trust_env = False
-                        session.post(
-                            f'{broker_url}/_local/workspace-write-locks:release',
-                            json={**payload, 'lease_id': lease_id},
-                            headers=headers,
-                            timeout=5,
-                        )
-                except requests.RequestException:
-                    pass
 
 
 @dataclass(frozen=True)
@@ -145,7 +87,7 @@ class LocalFileToolkit:
 
     __public_apis__ = [
         'ls', 'glob', 'grep', 'read', 'make_dir', 'write', 'append',
-        'string_replace', 'info', 'run_command',
+        'string_replace', 'info',
     ]
 
     def _get_scopes(self) -> List[LocalFSScope]:
@@ -253,6 +195,18 @@ class LocalFileToolkit:
         target = str(target or '').strip()
         if not target:
             target = '.'
+        if '\x00' in target:
+            raise ToolExecutionError('Workspace path is invalid')
+        portable_target = target.replace('\\', '/')
+        relative_only = all(scope.relative_paths for scope in scopes)
+        if relative_only and not allow_internal_absolute:
+            if (
+                os.path.isabs(target) or portable_target.startswith('//') or
+                re.match(r'^[A-Za-z]:($|/)', portable_target)
+            ):
+                raise ToolExecutionError('Workspace paths must be relative')
+            if any(part == '..' for part in portable_target.split('/')):
+                raise ToolExecutionError('Path escapes the authorized workspace')
         if os.path.isabs(target):
             if not allow_internal_absolute and all(scope.relative_paths for scope in scopes):
                 raise ToolExecutionError('Workspace paths must be relative')
@@ -295,10 +249,10 @@ class LocalFileToolkit:
 
     @staticmethod
     def _open_workspace_parent(path: str, scope: LocalFSScope) -> tuple[int, str]:
-        if not scope.relative_paths or os.name != 'posix':
-            if scope.relative_paths and os.name != 'posix':
-                raise ToolExecutionError('Workspace path cannot be opened safely on this platform')
+        if not scope.relative_paths:
             return os.open(os.path.dirname(path), os.O_RDONLY), os.path.basename(path)
+        if os.name != 'posix':
+            raise ToolExecutionError('Workspace path cannot be opened safely on this platform')
         root = next((
             os.path.realpath(candidate) for candidate in scope.roots
             if os.path.commonpath([os.path.realpath(candidate), path]) == os.path.realpath(candidate)
@@ -309,21 +263,20 @@ class LocalFileToolkit:
         parts = relative.split(os.sep)
         if relative in ('', '.') or any(part in ('', '.', '..') for part in parts):
             raise ToolExecutionError('Workspace path cannot be opened safely')
-        directory_flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
-        descriptors = []
+        flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+        opened = []
         try:
-            current = os.open(root, directory_flags)
-            descriptors.append(current)
+            current = os.open(root, flags)
+            opened.append(current)
             for part in parts[:-1]:
-                next_descriptor = os.open(part, directory_flags, dir_fd=current)
-                descriptors.append(next_descriptor)
-                current = next_descriptor
-            descriptors.pop()
+                current = os.open(part, flags, dir_fd=current)
+                opened.append(current)
+            opened.pop()
             return current, parts[-1]
         except OSError as exc:
             raise ToolExecutionError('Workspace path changed or contains a symlink') from exc
         finally:
-            for descriptor in reversed(descriptors):
+            for descriptor in reversed(opened):
                 try:
                     os.close(descriptor)
                 except OSError:
@@ -331,118 +284,255 @@ class LocalFileToolkit:
 
     @staticmethod
     def _open_workspace_fd(path: str, scope: LocalFSScope, flags: int, mode: int = 0o644) -> int:
-        """Open a workspace path relative to an anchored root without following links."""
-        parent_descriptor, name = LocalFileToolkit._open_workspace_parent(path, scope)
+        if scope.relative_paths and os.name == 'nt':
+            try:
+                return open_win32_workspace_file(path, scope.roots[0], flags, mode)
+            except WorkspaceWin32Error as exc:
+                raise ToolExecutionError('Workspace path changed or contains a link') from exc
+        parent, name = LocalFileToolkit._open_workspace_parent(path, scope)
         try:
-            return os.open(
-                name, flags | getattr(os, 'O_NOFOLLOW', 0), mode,
-                dir_fd=parent_descriptor,
-            )
+            return os.open(name, flags | getattr(os, 'O_NOFOLLOW', 0), mode, dir_fd=parent)
         except OSError as exc:
             raise ToolExecutionError('Workspace path changed or contains a symlink') from exc
         finally:
-            os.close(parent_descriptor)
+            os.close(parent)
+
+    @staticmethod
+    def _open_workspace_dir(path: str, scope: LocalFSScope) -> int:
+        if scope.relative_paths and os.name == 'nt':
+            raise ToolExecutionError('Workspace directory requires a guarded path operation')
+        flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+        roots = [os.path.realpath(candidate) for candidate in scope.roots]
+        if path in roots:
+            try:
+                return os.open(path, flags)
+            except OSError as exc:
+                raise ToolExecutionError('Workspace path changed or contains a symlink') from exc
+        parent, name = LocalFileToolkit._open_workspace_parent(path, scope)
+        try:
+            return os.open(name, flags, dir_fd=parent)
+        except OSError as exc:
+            raise ToolExecutionError('Workspace path changed or contains a symlink') from exc
+        finally:
+            os.close(parent)
 
     def _atomic_write_workspace(
-        self,
-        path: str,
-        scope: LocalFSScope,
-        content: bytes,
-        *,
-        expected_version: Optional[str],
+        self, path: str, scope: LocalFSScope, content: bytes, expected_version: str,
     ) -> None:
-        """Stage and replace a file through one anchored parent descriptor."""
-        parent_descriptor, name = self._open_workspace_parent(path, scope)
+        if os.name == 'nt':
+            self._atomic_write_workspace_windows(path, scope, content, expected_version)
+            return
+        parent, name = self._open_workspace_parent(path, scope)
         temp_name = f'.{name}.{secrets.token_hex(8)}.tmp'
-        temp_descriptor: Optional[int] = None
+        temp_fd = None
         try:
             try:
-                current_descriptor = os.open(
-                    name,
-                    os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0),
-                    dir_fd=parent_descriptor,
-                )
+                current_fd = os.open(name, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0), dir_fd=parent)
             except OSError as exc:
                 raise ToolExecutionError('Workspace target changed before commit') from exc
             try:
-                current_stat = os.fstat(current_descriptor)
+                current_stat = os.fstat(current_fd)
                 digest = hashlib.sha256()
-                while chunk := os.read(current_descriptor, 1024 * 1024):
+                while chunk := os.read(current_fd, 1024 * 1024):
                     digest.update(chunk)
-                if expected_version and digest.hexdigest() != expected_version:
+                if digest.hexdigest() != expected_version:
+                    raise ToolExecutionError('File version conflict; read the file again before modifying it')
+            finally:
+                os.close(current_fd)
+            temp_fd = os.open(
+                temp_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0),
+                0o600,
+                dir_fd=parent,
+            )
+            view = memoryview(content)
+            while view:
+                written = os.write(temp_fd, view)
+                view = view[written:]
+            os.fsync(temp_fd)
+            os.fchmod(temp_fd, stat.S_IMODE(current_stat.st_mode))
+            os.close(temp_fd)
+            temp_fd = None
+            self._authorize_scope(scope, 'write')
+            verify_fd = os.open(name, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0), dir_fd=parent)
+            try:
+                verify_stat = os.fstat(verify_fd)
+                verify_digest = hashlib.sha256()
+                while chunk := os.read(verify_fd, 1024 * 1024):
+                    verify_digest.update(chunk)
+                if (
+                    verify_digest.hexdigest() != expected_version or
+                    (verify_stat.st_dev, verify_stat.st_ino) != (current_stat.st_dev, current_stat.st_ino)
+                ):
                     raise ToolExecutionError(
                         'File version conflict; read the file again before modifying it'
                     )
             finally:
-                os.close(current_descriptor)
-
-            temp_descriptor = os.open(
-                temp_name,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0),
-                0o600,
-                dir_fd=parent_descriptor,
-            )
-            view = memoryview(content)
-            while view:
-                written = os.write(temp_descriptor, view)
-                view = view[written:]
-            os.fsync(temp_descriptor)
-            os.fchmod(temp_descriptor, stat.S_IMODE(current_stat.st_mode))
-            os.close(temp_descriptor)
-            temp_descriptor = None
-            self._authorize_scope(scope, 'write')
-            os.replace(
-                temp_name,
-                name,
-                src_dir_fd=parent_descriptor,
-                dst_dir_fd=parent_descriptor,
-            )
-            os.fsync(parent_descriptor)
+                os.close(verify_fd)
+            os.replace(temp_name, name, src_dir_fd=parent, dst_dir_fd=parent)
+            os.fsync(parent)
             temp_name = ''
         except ToolExecutionError:
             raise
         except OSError as exc:
             raise ToolExecutionError('Workspace file could not be committed safely') from exc
         finally:
-            if temp_descriptor is not None:
+            if temp_fd is not None:
                 try:
-                    os.close(temp_descriptor)
+                    os.close(temp_fd)
                 except OSError:
                     pass
             if temp_name:
                 try:
-                    os.unlink(temp_name, dir_fd=parent_descriptor)
+                    os.unlink(temp_name, dir_fd=parent)
                 except OSError:
                     pass
-            os.close(parent_descriptor)
+            os.close(parent)
 
-    def _read_workspace_bytes(
-        self,
-        path: str,
-        scope: LocalFSScope,
-        *,
-        limit: int = _MAX_TEXT_BYTES,
-    ) -> bytes:
+    def _atomic_write_workspace_windows(
+        self, path: str, scope: LocalFSScope, content: bytes, expected_version: str,
+    ) -> None:
+        temp_path = os.path.join(
+            os.path.dirname(path), f'.{os.path.basename(path)}.{secrets.token_hex(8)}.tmp',
+        )
+        try:
+            with lock_win32_workspace_parent(path, scope.roots[0]):
+                if self._version_for_scope(path, scope) != expected_version:
+                    raise ToolExecutionError(
+                        'File version conflict; read the file again before modifying it'
+                    )
+                descriptor = open_win32_workspace_file(
+                    temp_path, scope.roots[0], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600,
+                )
+                with os.fdopen(descriptor, 'wb') as handle:
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                self._authorize_scope(scope, 'write')
+                if self._version_for_scope(path, scope) != expected_version:
+                    raise ToolExecutionError(
+                        'File version conflict; read the file again before modifying it'
+                    )
+                os.replace(temp_path, path)
+                temp_path = ''
+        except ToolExecutionError:
+            raise
+        except (OSError, WorkspaceWin32Error) as exc:
+            raise ToolExecutionError('Workspace file could not be committed safely') from exc
+        finally:
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+
+    def _atomic_create_workspace(
+        self, path: str, scope: LocalFSScope, content: bytes, mode: int = 0o644,
+    ) -> None:
+        if os.name == 'nt':
+            self._atomic_create_workspace_windows(path, scope, content, mode)
+            return
+        parent, name = self._open_workspace_parent(path, scope)
+        temp_name = f'.{name}.{secrets.token_hex(8)}.tmp'
+        temp_fd = None
+        try:
+            temp_fd = os.open(
+                temp_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0),
+                0o600,
+                dir_fd=parent,
+            )
+            view = memoryview(content)
+            while view:
+                written = os.write(temp_fd, view)
+                view = view[written:]
+            os.fsync(temp_fd)
+            os.fchmod(temp_fd, mode)
+            os.close(temp_fd)
+            temp_fd = None
+            self._authorize_scope(scope, 'write')
+            os.link(
+                temp_name, name,
+                src_dir_fd=parent, dst_dir_fd=parent, follow_symlinks=False,
+            )
+            os.unlink(temp_name, dir_fd=parent)
+            temp_name = ''
+            os.fsync(parent)
+        except FileExistsError as exc:
+            raise ToolExecutionError(
+                'File already exists; set overwrite=true and provide its version to replace it'
+            ) from exc
+        except ToolExecutionError:
+            raise
+        except OSError as exc:
+            raise ToolExecutionError('Workspace file could not be committed safely') from exc
+        finally:
+            if temp_fd is not None:
+                try:
+                    os.close(temp_fd)
+                except OSError:
+                    pass
+            if temp_name:
+                try:
+                    os.unlink(temp_name, dir_fd=parent)
+                except OSError:
+                    pass
+            os.close(parent)
+
+    def _atomic_create_workspace_windows(
+        self, path: str, scope: LocalFSScope, content: bytes, mode: int,
+    ) -> None:
+        temp_path = os.path.join(
+            os.path.dirname(path), f'.{os.path.basename(path)}.{secrets.token_hex(8)}.tmp',
+        )
+        try:
+            with lock_win32_workspace_parent(path, scope.roots[0]):
+                if os.path.lexists(path):
+                    raise FileExistsError(path)
+                descriptor = open_win32_workspace_file(
+                    temp_path, scope.roots[0], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600,
+                )
+                with os.fdopen(descriptor, 'wb') as handle:
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.chmod(temp_path, mode)
+                self._authorize_scope(scope, 'write')
+                if os.path.lexists(path):
+                    raise FileExistsError(path)
+                os.rename(temp_path, path)
+                temp_path = ''
+        except FileExistsError as exc:
+            raise ToolExecutionError(
+                'File already exists; set overwrite=true and provide its version to replace it'
+            ) from exc
+        except ToolExecutionError:
+            raise
+        except (OSError, WorkspaceWin32Error) as exc:
+            raise ToolExecutionError('Workspace file could not be committed safely') from exc
+        finally:
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+
+    def _read_workspace_bytes(self, path: str, scope: LocalFSScope) -> bytes:
         descriptor = self._open_workspace_fd(path, scope, os.O_RDONLY)
         try:
-            if os.fstat(descriptor).st_size > limit:
-                raise ToolExecutionError('Text file exceeds the 20 MiB limit')
-            chunks = []
-            remaining = limit + 1
-            while remaining > 0:
-                chunk = os.read(descriptor, min(1024 * 1024, remaining))
+            content = bytearray()
+            while len(content) <= _MAX_TEXT_BYTES:
+                chunk = os.read(descriptor, min(1024 * 1024, _MAX_TEXT_BYTES + 1 - len(content)))
                 if not chunk:
                     break
-                chunks.append(chunk)
-                remaining -= len(chunk)
-            content = b''.join(chunks)
-            if len(content) > limit:
+                content.extend(chunk)
+            if len(content) > _MAX_TEXT_BYTES:
                 raise ToolExecutionError('Text file exceeds the 20 MiB limit')
-            return content
+            return bytes(content)
         finally:
             os.close(descriptor)
 
-    def _workspace_version(self, path: str, scope: LocalFSScope) -> str:
+    def _version_for_scope(self, path: str, scope: LocalFSScope) -> str:
         if scope.workspace_id:
             return hashlib.sha256(self._read_workspace_bytes(path, scope)).hexdigest()
         return self._version(path)
@@ -450,6 +540,33 @@ class LocalFileToolkit:
     def _make_workspace_dir(self, path: str, scope: LocalFSScope) -> None:
         if not scope.relative_paths:
             os.makedirs(path, mode=0o755, exist_ok=True)
+            return
+        if os.name == 'nt':
+            root = os.path.realpath(scope.roots[0])
+            relative = os.path.relpath(path, root)
+            parts = relative.replace('\\', '/').split('/')
+            if relative in ('', '.'):
+                return
+            if any(part in ('', '.', '..') for part in parts):
+                raise ToolExecutionError('Workspace directory cannot be created safely')
+            current = root
+            for part in parts:
+                candidate = os.path.join(current, part)
+                try:
+                    with lock_win32_workspace_parent(candidate, root):
+                        if os.path.lexists(candidate):
+                            if os.path.islink(candidate) or not os.path.isdir(candidate):
+                                raise ToolExecutionError(
+                                    'Workspace path changed or contains a link'
+                                )
+                        else:
+                            self._authorize_scope(scope, 'write')
+                            os.mkdir(candidate, mode=0o755)
+                    current = candidate
+                except WorkspaceWin32Error as exc:
+                    raise ToolExecutionError(
+                        'Workspace path changed or contains a link'
+                    ) from exc
             return
         if os.name != 'posix':
             raise ToolExecutionError('Workspace directory cannot be created safely on this platform')
@@ -460,27 +577,25 @@ class LocalFileToolkit:
         if not root:
             raise ToolExecutionError('Path is outside the authorized workspace')
         relative = os.path.relpath(path, root)
-        parts = relative.split(os.sep)
         if relative in ('', '.'):
             return
+        parts = relative.split(os.sep)
         if any(part in ('', '.', '..') for part in parts):
-            raise ToolExecutionError('Workspace path cannot be created safely')
-        directory_flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
-        current = os.open(root, directory_flags)
+            raise ToolExecutionError('Workspace directory cannot be created safely')
+        flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+        current = os.open(root, flags)
         try:
             for part in parts:
                 try:
-                    next_descriptor = os.open(part, directory_flags, dir_fd=current)
+                    next_fd = os.open(part, flags, dir_fd=current)
                 except OSError as exc:
                     if exc.errno != errno.ENOENT:
                         raise ToolExecutionError('Workspace path changed or contains a symlink') from exc
                     self._authorize_scope(scope, 'write')
                     os.mkdir(part, mode=0o755, dir_fd=current)
-                    next_descriptor = os.open(part, directory_flags, dir_fd=current)
+                    next_fd = os.open(part, flags, dir_fd=current)
                 os.close(current)
-                current = next_descriptor
-        except OSError as exc:
-            raise ToolExecutionError('Workspace directory could not be created safely') from exc
+                current = next_fd
         finally:
             os.close(current)
 
@@ -647,20 +762,75 @@ class LocalFileToolkit:
             safe_dir, scope = self._resolve_dir(str(path))
             self._authorize_scope(scope, 'read')
 
-        with os.scandir(safe_dir) as iterator:
-            for entry in sorted(iterator, key=lambda item: item.name):
-                try:
-                    entry_path, entry_scope = self._resolve_with_scope(
-                        entry.path, allow_internal_absolute=True,
-                    )
-                    if entry.is_dir(follow_symlinks=True):
-                        entries.append(self._entry(entry_path, entry_scope))
-                    elif entry.is_file(follow_symlinks=True) and self._is_visible_file(entry_scope, entry_path):
-                        entries.append(self._entry(entry_path, entry_scope))
-                except (OSError, ToolExecutionError):
-                    continue
-                if len(entries) >= limit:
-                    break
+        if scope.workspace_id and os.name == 'nt':
+            try:
+                with lock_win32_workspace_path(safe_dir, scope.roots[0], include_leaf=True):
+                    with os.scandir(safe_dir) as iterator:
+                        for entry in sorted(iterator, key=lambda item: item.name):
+                            try:
+                                entry_stat = entry.stat(follow_symlinks=False)
+                                if entry.is_symlink():
+                                    continue
+                                entry_path = os.path.join(safe_dir, entry.name)
+                                if stat.S_ISDIR(entry_stat.st_mode) or (
+                                    stat.S_ISREG(entry_stat.st_mode) and self._is_visible_file(scope, entry_path)
+                                ):
+                                    entries.append({
+                                        'name': entry.name,
+                                        'path': self._relative(entry_path, scope),
+                                        'type': 'directory' if stat.S_ISDIR(entry_stat.st_mode) else 'file',
+                                        'source_id': scope.source_id,
+                                        'size': entry_stat.st_size,
+                                        'mtime': datetime.datetime.fromtimestamp(entry_stat.st_mtime).isoformat(),
+                                    })
+                            except OSError:
+                                continue
+                            if len(entries) >= limit:
+                                break
+            except WorkspaceWin32Error as exc:
+                raise ToolExecutionError('Workspace path changed or contains a link') from exc
+        elif scope.workspace_id:
+            descriptor = self._open_workspace_dir(safe_dir, scope)
+            try:
+                with os.scandir(descriptor) as iterator:
+                    for entry in sorted(iterator, key=lambda item: item.name):
+                        try:
+                            entry_stat = entry.stat(follow_symlinks=False)
+                            if stat.S_ISLNK(entry_stat.st_mode):
+                                continue
+                            entry_path = os.path.join(safe_dir, entry.name)
+                            if stat.S_ISDIR(entry_stat.st_mode) or (
+                                stat.S_ISREG(entry_stat.st_mode) and self._is_visible_file(scope, entry_path)
+                            ):
+                                entries.append({
+                                    'name': entry.name,
+                                    'path': self._relative(entry_path, scope),
+                                    'type': 'directory' if stat.S_ISDIR(entry_stat.st_mode) else 'file',
+                                    'source_id': scope.source_id,
+                                    'size': entry_stat.st_size,
+                                    'mtime': datetime.datetime.fromtimestamp(entry_stat.st_mtime).isoformat(),
+                                })
+                        except OSError:
+                            continue
+                        if len(entries) >= limit:
+                            break
+            finally:
+                os.close(descriptor)
+        else:
+            with os.scandir(safe_dir) as iterator:
+                for entry in sorted(iterator, key=lambda item: item.name):
+                    try:
+                        entry_path, entry_scope = self._resolve_with_scope(
+                            entry.path, allow_internal_absolute=True,
+                        )
+                        if entry.is_dir(follow_symlinks=True):
+                            entries.append(self._entry(entry_path, entry_scope))
+                        elif entry.is_file(follow_symlinks=True) and self._is_visible_file(entry_scope, entry_path):
+                            entries.append(self._entry(entry_path, entry_scope))
+                    except (OSError, ToolExecutionError):
+                        continue
+                    if len(entries) >= limit:
+                        break
 
         return {
             'path': self._relative(safe_dir, scope),
@@ -819,23 +989,18 @@ class LocalFileToolkit:
                 if self._is_sensitive(resolved) and not self._sensitive_read_allowed(resolved, scope):
                     continue
                 try:
-                    if scope.relative_paths:
-                        content = self._read_workspace_bytes(resolved, scope)
-                    else:
-                        with open(resolved, 'rb') as handle:
-                            content = handle.read(_MAX_TEXT_BYTES + 1)
-                    self._authorize_scope(scope, 'read')
-                    for lineno, line in enumerate(content.decode('utf-8', errors='replace').splitlines(), 1):
-                        if regex.search(line):
-                            matches.append({
-                                'file': self._relative(resolved, scope),
-                                'source_id': scope.source_id,
-                                'line': lineno,
-                                'content': line[:500],
-                            })
-                            if len(matches) >= max_results:
-                                break
-                except (OSError, ToolExecutionError):
+                    with open(resolved, 'r', encoding='utf-8', errors='replace') as fh:
+                        for lineno, line in enumerate(fh, 1):
+                            if regex.search(line):
+                                matches.append({
+                                    'file': self._relative(resolved, scope),
+                                    'source_id': scope.source_id,
+                                    'line': lineno,
+                                    'content': line.rstrip()[:500],
+                                })
+                                if len(matches) >= max_results:
+                                    break
+                except OSError:
                     continue
                 if len(matches) >= max_results:
                     break
@@ -874,37 +1039,50 @@ class LocalFileToolkit:
             raise ToolExecutionError.approval_required(
                 f'Reading sensitive file {self._relative(safe_path, scope)!r} requires one-time approval.'
             )
+        if os.path.getsize(safe_path) > _MAX_TEXT_BYTES:
+            raise ToolExecutionError('Text file exceeds the 20 MiB limit')
+
         start_line = max(0, int(start_line))
         max_lines = min(4000, max(1, int(max_lines)))
 
         try:
-            descriptor = self._open_workspace_fd(safe_path, scope, os.O_RDONLY)
-            with os.fdopen(descriptor, 'rb') as fh:
-                if os.fstat(fh.fileno()).st_size > _MAX_TEXT_BYTES:
-                    raise ToolExecutionError('Text file exceeds the 20 MiB limit')
-                raw = fh.read(_MAX_TEXT_BYTES + 1)
-            if len(raw) > _MAX_TEXT_BYTES:
-                raise ToolExecutionError('Text file exceeds the 20 MiB limit')
+            chunk: List[str] = []
+            if scope.workspace_id:
+                snapshot = self._read_workspace_bytes(safe_path, scope)
+                lines = snapshot.decode('utf-8', errors='replace').splitlines(keepends=True)
+                total = len(lines)
+                window_bytes = 0
+                for line in lines[start_line:start_line + max_lines]:
+                    line_bytes = len(line.encode('utf-8'))
+                    if window_bytes + line_bytes > _MAX_READ_WINDOW_BYTES:
+                        break
+                    chunk.append(line)
+                    window_bytes += line_bytes
+                version = hashlib.sha256(snapshot).hexdigest()
+            else:
+                descriptor = self._open_workspace_fd(safe_path, scope, os.O_RDONLY)
+                with os.fdopen(descriptor, 'r', encoding='utf-8', errors='replace') as fh:
+                    total = 0
+                    for index, line in enumerate(fh):
+                        total += 1
+                        if start_line <= index < start_line + max_lines:
+                            candidate = ''.join(chunk) + line
+                            if len(candidate.encode('utf-8')) > _MAX_READ_WINDOW_BYTES:
+                                break
+                            chunk.append(line)
+                version = self._version_for_scope(safe_path, scope)
         except OSError as exc:
             raise ToolExecutionError(f'Cannot read file: {exc}') from exc
-        self._authorize_scope(scope, 'read')
-        lines = raw.decode('utf-8', errors='replace').splitlines(keepends=True)
-        chunk: List[str] = []
-        for line in lines[start_line:start_line + max_lines]:
-            candidate = ''.join(chunk) + line
-            if len(candidate.encode('utf-8')) > _MAX_READ_WINDOW_BYTES:
-                break
-            chunk.append(line)
 
         return {
             'path': self._relative(safe_path, scope),
             'filepath': self._relative(safe_path, scope),
             'source_id': scope.source_id,
-            'total_lines': len(lines),
+            'total_lines': total,
             'start_line': start_line,
             'end_line': start_line + len(chunk),
             'content': ''.join(chunk),
-            'version': hashlib.sha256(raw).hexdigest(),
+            'version': version,
         }
 
     def string_replace(
@@ -944,14 +1122,14 @@ class LocalFileToolkit:
         if os.path.getsize(safe_path) > _MAX_TEXT_BYTES:
             raise ToolExecutionError('Text file exceeds the 20 MiB limit')
 
-        with _write_lock(safe_path, scope):
+        with _write_lock(safe_path):
             if scope.workspace_id and not expected_version:
                 raise ToolExecutionError('expected_version is required when modifying a workspace file')
-            if expected_version and self._workspace_version(safe_path, scope) != expected_version:
+            if expected_version and self._version_for_scope(safe_path, scope) != expected_version:
                 raise ToolExecutionError('File version conflict; read the file again before modifying it')
             self._authorize_scope(scope, 'write')
-            if scope.workspace_id:
-                try:
+            try:
+                if scope.workspace_id:
                     replacement = build_exact_replacement(
                         self._read_workspace_bytes(safe_path, scope),
                         old_string,
@@ -959,16 +1137,10 @@ class LocalFileToolkit:
                         expected_replacements=expected_replacements,
                         encoding=encoding,
                     )
-                except ValueError as exc:
-                    raise ToolExecutionError(str(exc)) from exc
-                self._atomic_write_workspace(
-                    safe_path,
-                    scope,
-                    replacement.content,
-                    expected_version=expected_version,
-                )
-            else:
-                try:
+                    self._atomic_write_workspace(
+                        safe_path, scope, replacement.content, expected_version or '',
+                    )
+                else:
                     replacement = replace_exact_text_file(
                         safe_path,
                         old_string,
@@ -976,8 +1148,8 @@ class LocalFileToolkit:
                         expected_replacements=expected_replacements,
                         encoding=encoding,
                     )
-                except ValueError as exc:
-                    raise ToolExecutionError(str(exc)) from exc
+            except ValueError as exc:
+                raise ToolExecutionError(str(exc)) from exc
 
         return {
             'path': self._relative(safe_path, scope),
@@ -986,7 +1158,7 @@ class LocalFileToolkit:
             'replacements': replacement.replacements,
             'encoding': replacement.encoding,
             'bytes': len(replacement.content),
-            'version': self._workspace_version(safe_path, scope),
+            'version': self._version_for_scope(safe_path, scope),
         }
 
     def info(self, path: Optional[str] = None) -> Dict[str, Any]:
@@ -1012,19 +1184,41 @@ class LocalFileToolkit:
                 self._ensure_visible_file(scope, safe_path)
 
         try:
-            st = os.stat(safe_path)
-        except OSError as exc:
-            raise ToolExecutionError(f'Cannot get file info: {exc}') from exc
+            if scope.workspace_id:
+                if os.name == 'nt' and os.path.isdir(safe_path):
+                    with lock_win32_workspace_path(
+                        safe_path, scope.roots[0], include_leaf=True,
+                    ):
+                        st = os.stat(safe_path, follow_symlinks=False)
+                else:
+                    descriptor = (
+                        self._open_workspace_dir(safe_path, scope)
+                        if os.path.isdir(safe_path)
+                        else self._open_workspace_fd(safe_path, scope, os.O_RDONLY)
+                    )
+                    try:
+                        st = os.fstat(descriptor)
+                        if stat.S_ISREG(st.st_mode):
+                            digest = hashlib.sha256()
+                            while chunk := os.read(descriptor, 1024 * 1024):
+                                digest.update(chunk)
+                            version = digest.hexdigest()
+                    finally:
+                        os.close(descriptor)
+            else:
+                st = os.stat(safe_path)
+        except (OSError, WorkspaceWin32Error) as exc:
+            raise ToolExecutionError('Cannot get file info safely') from exc
 
         result = {
             'path': self._relative(safe_path, scope),
-            'type': 'directory' if os.path.isdir(safe_path) else 'file',
+            'type': 'directory' if stat.S_ISDIR(st.st_mode) else 'file',
             'source_id': scope.source_id,
             'size': st.st_size,
             'mtime': datetime.datetime.fromtimestamp(st.st_mtime).isoformat(),
         }
-        if os.path.isfile(safe_path):
-            result['version'] = self._workspace_version(safe_path, scope)
+        if stat.S_ISREG(st.st_mode):
+            result['version'] = version if scope.workspace_id else self._version_for_scope(safe_path, scope)
         return result
 
     def make_dir(self, path: str) -> Dict[str, Any]:
@@ -1071,7 +1265,7 @@ class LocalFileToolkit:
             raise ToolExecutionError('Parent directory does not exist')
         encoded = content.encode(encoding)
         created = False
-        with _write_lock(safe_path, scope):
+        with _write_lock(safe_path):
             try:
                 if overwrite:
                     if not os.path.isfile(safe_path):
@@ -1080,17 +1274,14 @@ class LocalFileToolkit:
                         raise ToolExecutionError(
                             'expected_version is required when overwriting a workspace file'
                         )
-                    if expected_version and self._workspace_version(safe_path, scope) != expected_version:
+                    if expected_version and self._version_for_scope(safe_path, scope) != expected_version:
                         raise ToolExecutionError(
                             'File version conflict; read the file again before overwriting it'
                         )
                     self._authorize_scope(scope, 'write')
                     if scope.workspace_id:
                         self._atomic_write_workspace(
-                            safe_path,
-                            scope,
-                            encoded,
-                            expected_version=expected_version,
+                            safe_path, scope, encoded, expected_version or '',
                         )
                     else:
                         write_file_atomically(safe_path, encoded)
@@ -1098,16 +1289,19 @@ class LocalFileToolkit:
                     if expected_version:
                         raise ToolExecutionError('expected_version is not valid when creating a new file')
                     self._authorize_scope(scope, 'write')
-                    descriptor = self._open_workspace_fd(
-                        safe_path,
-                        scope,
-                        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-                        0o644,
-                    )
-                    with os.fdopen(descriptor, 'wb') as handle:
-                        handle.write(encoded)
-                        handle.flush()
-                        os.fsync(handle.fileno())
+                    if scope.workspace_id:
+                        self._atomic_create_workspace(safe_path, scope, encoded)
+                    else:
+                        descriptor = self._open_workspace_fd(
+                            safe_path,
+                            scope,
+                            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                            0o644,
+                        )
+                        with os.fdopen(descriptor, 'wb') as handle:
+                            handle.write(encoded)
+                            handle.flush()
+                            os.fsync(handle.fileno())
                     created = True
             except FileExistsError as exc:
                 raise ToolExecutionError(
@@ -1118,7 +1312,7 @@ class LocalFileToolkit:
         return {
             'path': self._relative(safe_path, scope), 'source_id': scope.source_id,
             'bytes': os.path.getsize(safe_path), 'created': created,
-            'version': self._workspace_version(safe_path, scope),
+            'version': self._version_for_scope(safe_path, scope),
         }
 
     def append(
@@ -1146,10 +1340,10 @@ class LocalFileToolkit:
             raise ToolExecutionError(f'File not found: {filepath}')
         self._ensure_visible_file(scope, safe_path)
         self._ensure_write_target_allowed(safe_path, scope)
-        with _write_lock(safe_path, scope):
+        with _write_lock(safe_path):
             if scope.workspace_id and not expected_version:
                 raise ToolExecutionError('expected_version is required when appending to a workspace file')
-            if expected_version and self._workspace_version(safe_path, scope) != expected_version:
+            if expected_version and self._version_for_scope(safe_path, scope) != expected_version:
                 raise ToolExecutionError('File version conflict; read the file again before appending')
             try:
                 if scope.workspace_id:
@@ -1163,10 +1357,7 @@ class LocalFileToolkit:
                 self._authorize_scope(scope, 'write')
                 if scope.workspace_id:
                     self._atomic_write_workspace(
-                        safe_path,
-                        scope,
-                        current + addition,
-                        expected_version=expected_version,
+                        safe_path, scope, current + addition, expected_version or '',
                     )
                 else:
                     write_file_atomically(safe_path, current + addition)
@@ -1174,55 +1365,5 @@ class LocalFileToolkit:
                 raise ToolExecutionError('Cannot append file') from exc
         return {
             'path': self._relative(safe_path, scope), 'source_id': scope.source_id,
-            'bytes': os.path.getsize(safe_path), 'version': self._workspace_version(safe_path, scope),
+            'bytes': os.path.getsize(safe_path), 'version': self._version_for_scope(safe_path, scope),
         }
-
-    def run_command(
-        self, command: str, cwd: str = '.', timeout: int = 30,
-        allow_unsafe: bool = False,
-    ) -> Dict[str, Any]:
-        """Run a controlled command inside the task's authorized workspace.
-
-        Workspace-contained delete, move, and rename operations execute under
-        the folder authorization. Privilege, system-damage, and out-of-workspace
-        operations remain denied even when ``allow_unsafe`` is true.
-        """
-        workspace_scopes = [scope for scope in self._get_scopes() if scope.relative_paths]
-        if len(workspace_scopes) != 1:
-            raise ToolExecutionError('Exactly one task workspace is required for commands')
-        scope = workspace_scopes[0]
-        self._authorize_scope(scope, 'command')
-        if os.path.isabs(cwd) or cwd == '..' or cwd.startswith('../'):
-            raise ToolExecutionError('Command cwd must be workspace-relative')
-        safe_cwd = os.path.realpath(os.path.join(scope.roots[0], cwd))
-        root = os.path.realpath(scope.roots[0])
-        try:
-            inside = os.path.commonpath([root, safe_cwd]) == root
-        except ValueError:
-            inside = False
-        if not inside or not os.path.isdir(safe_cwd):
-            raise ToolExecutionError('Command cwd is outside the task workspace')
-        try:
-            command_tokens = shlex.split(command)
-        except ValueError as exc:
-            raise ToolExecutionError(f'Invalid command syntax: {exc}') from exc
-        for token in command_tokens:
-            if '://' in token:
-                continue
-            if os.path.isabs(token) or token == '..' or token.startswith('../'):
-                raise ToolExecutionError(f'Command path argument is not workspace-relative: {token!r}')
-        result = shell_tool(
-            command, cwd=safe_cwd, timeout=min(600, max(1, int(timeout))),
-            env=self._command_environment(), allow_unsafe=allow_unsafe,
-        )
-        for field in ('stdout', 'stderr'):
-            value = str(result.get(field) or '')
-            result[field] = value.replace(root + os.sep, '').replace(root, '.')
-        result['cwd'] = self._relative(safe_cwd, scope)
-        result['source_id'] = scope.source_id
-        return result
-
-    @staticmethod
-    def _command_environment() -> Dict[str, str]:
-        allowed = ('PATH', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR', 'SYSTEMROOT', 'WINDIR')
-        return {key: os.environ[key] for key in allowed if key in os.environ}

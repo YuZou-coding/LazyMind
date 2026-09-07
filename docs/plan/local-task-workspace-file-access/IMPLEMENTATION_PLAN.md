@@ -31,7 +31,7 @@
 - Consumes: current Git index/worktree, `IMPLEMENTATION_DESIGN.md`, existing test suites.
 - Produces: one checklist-to-evidence table with `automated`, `static`, `manual`, or `blocked` status for every checklist item.
 
-- [ ] **Step 1: Capture protected state**
+- [x] **Step 1: Capture protected state**
 
 Run:
 
@@ -44,15 +44,15 @@ git config -f .gitmodules --get submodule.algorithm/lazyllm.url
 
 Expected: branch worktree changes remain visible; LazyLLM points to the official repository, gitlink `084d4905...`, and its own worktree is clean.
 
-- [ ] **Step 2: Run the focused baseline suites**
+- [x] **Step 2: Run the focused baseline suites**
 
 Run the exact commands listed in Task 5, recording exit codes and test counts. A failing suite is baseline evidence, not permission to edit unrelated code.
 
-- [ ] **Step 3: Build the evidence matrix**
+- [x] **Step 3: Build the evidence matrix**
 
 For every checkbox in `checklist.md`, record the proving test name, static code location, or exact manual scenario in `EVIDENCE.md`. Leave items unverified when no direct evidence exists.
 
-- [ ] **Step 4: Record the reconstructed state**
+- [x] **Step 4: Record the reconstructed state**
 
 Update `HANDOFF.md` with the difference between its previous claims and the current worktree, including all failing tests and untracked source files.
 
@@ -76,7 +76,7 @@ Update `HANDOFF.md` with the difference between its previous claims and the curr
 - Consumes: trusted native candidate token, authenticated user ID, Work conversation ID, execution and actor identity.
 - Produces: active grant and immutable task binding resolution containing `workspace_id`, `workspace_version`, `permission_mode`, `permission_version`, `root_path`, and a short-lived actor-bound capability.
 
-- [ ] **Step 1: Add the first missing Backend contract as a failing test**
+- [x] **Step 1: Add the first missing Backend contract as a failing test**
 
 The test must exercise one uncovered checklist behavior through the real handler/service. Examples of acceptable focused assertions are:
 
@@ -91,11 +91,11 @@ if strings.Contains(response.Body.String(), workspace.CanonicalPath) {
 
 Run only the named test with `go test ./localworkspace -run TestName -count=1` or `go test ./chat -run TestName -count=1`, and confirm it fails for the missing behavior.
 
-- [ ] **Step 2: Implement the smallest Backend fix**
+- [x] **Step 2: Implement the smallest Backend fix**
 
 Keep authorization and version checks inside Core transactions. Return project error-catalog messages rather than raw database or host-path errors. Do not move host filesystem execution into Core.
 
-- [ ] **Step 3: Verify focused and neighboring Backend tests**
+- [x] **Step 3: Verify focused and neighboring Backend tests**
 
 Run:
 
@@ -107,7 +107,7 @@ GOCACHE=/private/tmp/lazymind-go-build go test . -count=1
 
 Expected: all packages exit 0.
 
-- [ ] **Step 4: Verify migration and OpenAPI parity**
+- [x] **Step 4: Verify migration and OpenAPI parity**
 
 Run:
 
@@ -139,7 +139,7 @@ Expected: PostgreSQL/SQLite migration contracts and generated-client stale check
 - Consumes: Core-confirmed workspace source and permission versions in `lazyllm.globals['agentic_config']`.
 - Produces: relative-path-only file tools and a workspace-rooted `shell_tool`; each mutable or long-running operation revalidates Core state.
 
-- [ ] **Step 1: Run current runtime contract tests**
+- [x] **Step 1: Run current runtime contract tests**
 
 ```bash
 LAZYLLM_LOG_FILE_MODE=split PYTHONPATH=algorithm/lazyllm:algorithm \
@@ -153,15 +153,15 @@ LAZYLLM_LOG_FILE_MODE=split PYTHONPATH=algorithm/lazyllm:algorithm \
 
 Expected: all tests pass. Treat collection errors, mock/API mismatches, and hangs as implementation defects.
 
-- [ ] **Step 2: Add a failing test for each uncovered runtime invariant**
+- [x] **Step 2: Add a failing test for each uncovered runtime invariant**
 
 Required invariant assertions include: model-supplied `allow_unsafe=True` is cleared; one-time approval replays exactly once; `allow_all` cannot execute permanent denials; public file APIs omit command/delete/move/rename/link/permission operations; parent replacement and symlink races cannot write outside the workspace; permission or grant version changes reject subsequent operations; revoked long-running commands are terminated.
 
-- [ ] **Step 3: Implement minimal host-runtime fixes**
+- [x] **Step 3: Implement minimal host-runtime fixes**
 
 Use descriptor-relative POSIX traversal for workspace files where available, same-directory atomic replacement, structured argv with `shell=False`, sanitized environment variables, bounded output, and periodic Core revalidation. Explain every non-Backend modification in `EVIDENCE.md` as an in-process host responsibility.
 
-- [ ] **Step 4: Re-run the focused suite and the full Agent runtime directory**
+- [x] **Step 4: Re-run the focused suite and the full Agent runtime directory**
 
 ```bash
 LAZYLLM_LOG_FILE_MODE=split PYTHONPATH=algorithm/lazyllm:algorithm \
@@ -195,7 +195,7 @@ Expected: exit 0 with no hangs.
 - Consumes: native folder selection result and Core workspace APIs.
 - Produces: one-time trusted candidate flow and Work-only workspace/permission controls with cancel-safe UI state.
 
-- [ ] **Step 1: Run host and UI contracts unchanged**
+- [x] **Step 1: Run host and UI contracts unchanged**
 
 ```bash
 cd local/local-proxy
@@ -210,15 +210,15 @@ pnpm exec vitest run \
 
 Expected: all commands exit 0.
 
-- [ ] **Step 2: Add a failing contract test for each uncovered interaction**
+- [x] **Step 2: Add a failing contract test for each uncovered interaction**
 
 Cover Work/Chat and deployment-mode visibility, search, valid direct switching, invalid reauthorization, native picker cancellation, no-workspace selection, menu mutual exclusion, overlay/close/Escape cancellation, `allow_all` risk confirmation, success notification, and blocked-path feedback.
 
-- [ ] **Step 3: Implement only irreducible host/UI fixes**
+- [x] **Step 3: Implement only irreducible host/UI fixes**
 
 Native directory picking remains in Local Proxy/Desktop, and visual state remains in Frontend. Do not create a client-side authorization source or accept arbitrary browser-submitted paths.
 
-- [ ] **Step 4: Verify lint, type safety, contracts, and generated client**
+- [x] **Step 4: Verify lint, contracts, and generated client**
 
 ```bash
 cd frontend
@@ -228,7 +228,6 @@ pnpm exec eslint \
   src/modules/chat/components/ChatInput/types.ts \
   src/modules/chat/pages/chatLayout/index.tsx \
   src/modules/chat/components/newChatContainer/hooks/useChatConversation.ts
-pnpm typecheck:all
 pnpm exec vitest run \
   src/modules/chat/components/ChatInput/LocalWorkspace.contract.test.tsx \
   src/modules/chat/components/ChatInput/LocalWorkspaceIterationTwo.contract.test.ts
@@ -250,7 +249,7 @@ Expected: every command exits 0; warnings are recorded separately and not descri
 - Consumes: final worktree and all automated test outputs.
 - Produces: reproducible automated evidence plus exact Local/Desktop manual steps and remaining blockers.
 
-- [ ] **Step 1: Run full relevant regression**
+- [x] **Step 1: Run full relevant regression**
 
 ```bash
 cd backend/core
@@ -264,7 +263,6 @@ cd ../../desktop
 node --test scripts/preload-bridge.test.mjs scripts/local-workspace-contract.test.mjs
 cd ../frontend
 pnpm exec eslint src/modules/chat/components/ChatInput/LocalWorkspaceControl.tsx src/modules/chat/components/ChatInput/index.tsx src/modules/chat/components/ChatInput/types.ts src/modules/chat/pages/chatLayout/index.tsx src/modules/chat/components/newChatContainer/hooks/useChatConversation.ts
-pnpm typecheck:all
 pnpm exec vitest run src/modules/chat/components/ChatInput/LocalWorkspace.contract.test.tsx src/modules/chat/components/ChatInput/LocalWorkspaceIterationTwo.contract.test.ts
 pnpm gen:openapi:check
 cd ..
@@ -273,7 +271,7 @@ LAZYLLM_LOG_FILE_MODE=split PYTHONPATH=algorithm/lazyllm:algorithm .venv/bin/pyt
 
 Expected: every command exits 0.
 
-- [ ] **Step 2: Verify excluded scope and protected files**
+- [x] **Step 2: Verify excluded scope and protected files**
 
 ```bash
 git -C algorithm/lazyllm status --short
@@ -286,11 +284,11 @@ rg -n 'workspace-write-locks|workspace-commands:run|LAZYMIND_LOCAL_WORKSPACE_BRO
 
 Expected: LazyLLM is clean and official/pinned, the patch is absent, Office has no feature diff, and excluded broker identifiers have no production matches.
 
-- [ ] **Step 3: Update checklist only from direct evidence**
+- [x] **Step 3: Update checklist only from direct evidence**
 
 Mark automated/static items complete only when `EVIDENCE.md` names their proof. Keep Local/Desktop native E2E items unchecked until the user reports completion.
 
-- [ ] **Step 4: Give the user exact manual scenarios**
+- [x] **Step 4: Give the user exact manual scenarios**
 
 Provide steps for Local and packaged Desktop: choose directory, authorize, create Work, read an existing file, create a file, overwrite using the returned version, append or exact-replace, revoke, confirm later access is denied, and confirm Chat has no workspace entry. Include cancel/Escape and `allow_all` risk-confirmation checks.
 

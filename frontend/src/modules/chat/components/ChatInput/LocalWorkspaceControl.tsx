@@ -6,6 +6,7 @@ import {
   DownOutlined,
   ExclamationCircleOutlined,
   FolderOutlined,
+  GlobalOutlined,
   LinkOutlined,
   SearchOutlined,
   SafetyCertificateOutlined,
@@ -164,6 +165,7 @@ export default function LocalWorkspaceControl({
   const [authorizationError, setAuthorizationError] = useState("");
   const [revokeError, setRevokeError] = useState("");
   const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<LocalWorkspaceView | undefined>();
   const [loading, setLoading] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -233,6 +235,7 @@ export default function LocalWorkspaceControl({
       setPermissionOpen(false);
       setCandidate(undefined);
       setRevokeOpen(false);
+      setRevokeTarget(undefined);
       setAllowAllOpen(false);
     };
     document.addEventListener("pointerdown", closeOnPointerDown);
@@ -300,29 +303,34 @@ export default function LocalWorkspaceControl({
   };
 
   const revoke = async () => {
-    if (!selected?.workspace_id) return;
+    const target = revokeTarget ?? selected;
+    if (!target?.workspace_id) return;
     setLoading(true);
     setRevokeError("");
     try {
-      const response = await fetch(`/api/core/local-workspaces/${encodeURIComponent(selected.workspace_id)}:revoke`, {
+      const response = await fetch(`/api/core/local-workspaces/${encodeURIComponent(target.workspace_id)}:revoke`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: selected.version ?? 1 }),
+        body: JSON.stringify({ version: target.version ?? 1 }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw payload;
       const data = coreData<Partial<LocalWorkspaceView>>(payload);
-      if (readonly) {
+      const revokedCurrent = selected?.workspace_id === target.workspace_id;
+      if (readonly && revokedCurrent) {
         setSelected((current) => current ? { ...current, ...data, status: "revoked" } : current);
-      } else {
+      } else if (revokedCurrent) {
         setSelected(undefined);
       }
-      setItems((current) => current.filter((item) => item.workspace_id !== selected.workspace_id));
-      onSelectedWorkspaceChange(undefined);
-      setPermissionMode("ask_as_needed");
-      onPermissionModeChange("ask_as_needed");
+      setItems((current) => current.filter((item) => item.workspace_id !== target.workspace_id));
+      if (revokedCurrent) {
+        onSelectedWorkspaceChange(undefined);
+        setPermissionMode("ask_as_needed");
+        onPermissionModeChange("ask_as_needed");
+      }
       setRevokeOpen(false);
+      setRevokeTarget(undefined);
       setOpen(false);
       message.success(t("chat.workspace.revokedSuccess"));
     } catch (error) {
@@ -493,7 +501,7 @@ export default function LocalWorkspaceControl({
                 className="local-workspace-row-revoke"
                 aria-label={`${t("chat.workspace.revoke")} ${item.display_name}`}
                 onClick={() => {
-                  setSelected(item);
+                  setRevokeTarget(item);
                   setOpen(false);
                   setRevokeError("");
                   setRevokeOpen(true);
@@ -512,6 +520,7 @@ export default function LocalWorkspaceControl({
                   type="button"
                   aria-label={t("chat.workspace.revoke")}
                   onClick={() => {
+                    setRevokeTarget(selected);
                     setOpen(false);
                     setRevokeError("");
                     setRevokeOpen(true);
@@ -578,19 +587,25 @@ export default function LocalWorkspaceControl({
         </div>
       ) : null}
 
-      {revokeOpen && selected ? (
+      {revokeOpen && (revokeTarget ?? selected) ? (
         <div className="local-workspace-modal-backdrop" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setRevokeOpen(false);
+          if (event.target === event.currentTarget) {
+            setRevokeOpen(false);
+            setRevokeTarget(undefined);
+          }
         }}>
           <section className="local-workspace-modal local-workspace-revoke-modal" role="dialog" aria-modal="true" aria-label={t("chat.workspace.revokeTitle")}>
             <h2>{t("chat.workspace.revokeTitle")}</h2>
-            <p>{selected.path}</p>
+            <p>{(revokeTarget ?? selected)?.path}</p>
             <p>
-              {t("chat.workspace.revokeAffected")} <strong>{selected.affected_task_count ?? 0}</strong>
+              {t("chat.workspace.revokeAffected")} <strong>{(revokeTarget ?? selected)?.affected_task_count ?? 0}</strong>
             </p>
             {revokeError ? <p className="local-workspace-error" role="alert">{revokeError}</p> : null}
             <footer>
-              <button type="button" onClick={() => setRevokeOpen(false)}>{t("chat.workspace.cancel")}</button>
+              <button type="button" onClick={() => {
+                setRevokeOpen(false);
+                setRevokeTarget(undefined);
+              }}>{t("chat.workspace.cancel")}</button>
               <button type="button" className="danger" disabled={loading} onClick={() => void revoke()}>{t("chat.workspace.revoke")}</button>
             </footer>
           </section>
@@ -610,7 +625,8 @@ export default function LocalWorkspaceControl({
             <ul>
               <li><FolderOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.fileRisk")}</strong><small>{t("chat.workspace.permission.fileRiskDescription")}</small></span></li>
               <li><SettingOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.commandRisk")}</strong><small>{t("chat.workspace.permission.commandRiskDescription")}</small></span></li>
-              <li><LinkOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.networkAndConnectedAppsRisk")}</strong><small>{t("chat.workspace.permission.networkAndConnectedAppsRiskDescription")}</small></span></li>
+              <li><GlobalOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.networkRisk")}</strong><small>{t("chat.workspace.permission.networkRiskDescription")}</small></span></li>
+              <li><LinkOutlined aria-hidden="true" /><span><strong>{t("chat.workspace.permission.connectedAppRisk")}</strong><small>{t("chat.workspace.permission.connectedAppRiskDescription")}</small></span></li>
             </ul>
             <p className="local-workspace-risk-warning"><ExclamationCircleOutlined aria-hidden="true" /> {t("chat.workspace.permission.allowAllWarning")}</p>
             <footer>

@@ -30,6 +30,8 @@ from lazymind.chat.engine.prompts import (
     select_skill_candidates,
     selected_prompt_modules,
 )
+from lazymind.chat.engine.tools.workspace_shell import shell_tool as workspace_shell_tool
+from lazymind.chat.subagent_workspace_context import task_workspace_sources
 from lazymind.common.memory import (
     EpisodeReadError,
     EpisodeType,
@@ -969,6 +971,9 @@ async def _handle_chat_impl(
         if isinstance(source, dict) and source.get('workspace_id')
     ), None)
     if workspace_source:
+        agentic_config['local_fs_sources'] = task_workspace_sources(
+            retrieval.local_fs_sources,
+        )
         agentic_config['workspace_permission_mode'] = str(
             workspace_source.get('workspace_permission_mode') or 'ask_as_needed'
         )
@@ -1220,6 +1225,25 @@ async def _handle_chat_impl(
         await _build_mcp_tools(runtime.mcp_config)
         if runtime.mcp_config and not workflow_turn_is_bound else []
     )
+    agentic_config['connected_app_tool_names'] = [
+        str(getattr(tool, 'name', None) or getattr(tool, '__name__', None) or '')
+        for tool in mcp_tools
+        if getattr(tool, 'name', None) or getattr(tool, '__name__', None)
+    ]
+    agentic_config['network_tool_names'] = [
+        'web_search', 'academic_search', 'wikipedia', 'url_fetch',
+        'video_to_gif',
+        'GoogleSearch_search', 'GoogleSearch_get_content', 'GoogleSearch_get_contents',
+        'BingSearch_search', 'BingSearch_get_content', 'BingSearch_get_contents',
+        'BochaSearch_search', 'BochaSearch_get_content', 'BochaSearch_get_contents',
+        'TavilySearch_search', 'TavilySearch_get_content', 'TavilySearch_get_contents',
+        'SciverseSearch_search', 'SciverseSearch_get_content', 'SciverseSearch_get_contents',
+        'SciverseSearch_meta_search', 'SciverseSearch_meta_catalog',
+        'ArxivSearch_search', 'ArxivSearch_get_content', 'ArxivSearch_get_contents',
+        'WikipediaToolkit_search', 'WikipediaToolkit_get_content',
+        'WikipediaToolkit_get_contents',
+        'image_generator', 'image_editor', 'video_generator',
+    ]
     # User attachment tools are only meaningful when the user has uploaded files.
     attachment_tools = (
         [] if workflow_turn_is_bound else _build_user_attachment_tools(bool(files_map))
@@ -1280,6 +1304,8 @@ async def _handle_chat_impl(
     all_tools = (intent_tools + agent_tools + artifact_tools + subagent_tools + attachment_tools
                  + skill_listing_tools + session_env_tools + ask_user_tools
                  + workflow_tools + mcp_tools)
+    if workspace_source:
+        all_tools = [workspace_shell_tool, *all_tools]
     active_workflow_tool_isolation = bool(
         isinstance(effective_workflow_context, dict)
         and effective_workflow_context.get('session_id')

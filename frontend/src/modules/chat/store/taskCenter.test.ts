@@ -173,6 +173,34 @@ describe("task center workflow events", () => {
     ]);
   });
 
+  it("keeps a subagent approval pending until a terminal event", () => {
+    useTaskCenterStore.getState().upsertTask("conversation-1", {
+      task_id: "task-approval",
+      title: "approval",
+      status: "running",
+    });
+    useTaskCenterStore.getState().applyTaskEvent(
+      "conversation-1",
+      "task-approval",
+      {
+        type: "tool_limit_pending",
+        tool_limit_pending: {
+          decision_id: "decision-1",
+          approval_kind: "tool",
+          timeout_seconds: 600,
+        },
+      },
+    );
+    expect(useTaskCenterStore.getState().getTasks("conversation-1")[0].tool_limit_pending)
+      .toEqual(expect.objectContaining({ decision_id: "decision-1" }));
+
+    useTaskCenterStore.getState().applyTaskEvent(
+      "conversation-1", "task-approval", { type: "done", status: "succeeded" },
+    );
+    expect(useTaskCenterStore.getState().getTasks("conversation-1")[0].tool_limit_pending)
+      .toBeUndefined();
+  });
+
   it("keeps a live task when an older REST snapshot resolves and queues a reload", async () => {
     const firstSnapshot = deferred<{ data: { tasks: any[] } }>();
     const reconciledSnapshot = deferred<{ data: { tasks: any[] } }>();

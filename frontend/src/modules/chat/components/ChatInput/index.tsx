@@ -656,6 +656,12 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
       setContextRuntimeSettings(initialConversationSettings);
     }, [initialConversationSettings]);
 
+    useEffect(() => {
+      if (runInBackground) return;
+      setSelectedWorkspaceId(undefined);
+      setWorkspacePermissionMode("ask_as_needed");
+    }, [runInBackground]);
+
     const [fileList, setFileList] = useState<ChatFileList[]>([]);
     const { setPendingMessage, clearPendingMessage } = useChatMessageStore();
     const { saveInputContent, getInputContent, clearInputContent } =

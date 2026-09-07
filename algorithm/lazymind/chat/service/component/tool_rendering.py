@@ -6,6 +6,7 @@ from html import escape
 from typing import Any
 
 from lazymind.chat.engine.tools.session_env import redact_session_env_arguments
+from lazymind.chat.workspace_permission_notice import workspace_permission_notice
 from .tool_render_templates import (
     KB_EMPTY_RESULT_MESSAGES,
     TOOL_RENDER_FALLBACKS,
@@ -573,6 +574,9 @@ def _tool_result_preview(tool_name: str, result: Any, value: str = '', language:
             result,
         )
     if status == 'failed':
+        permission_notice = workspace_permission_notice(tool_name, result, language)
+        if permission_notice:
+            return permission_notice
         return _render_preview_template(
             tool_name,
             value or _tool_result_failure_detail(result),

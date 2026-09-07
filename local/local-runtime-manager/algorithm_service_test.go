@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"strconv"
 	"testing"
 )
 
@@ -142,7 +141,6 @@ func TestAlgorithmServiceEnvPinsLocalRouterHost(t *testing.T) {
 	assertEnvContains(t, env, "LAZYMIND_WORKFLOW_EXECUTOR_TOKEN=dev-workflow-executor-token")
 	assertEnvContains(t, env, "LAZYMIND_WORKFLOWS_DIR="+filepath.Join(repo, "workflows"))
 	assertEnvContains(t, env, localWorkspaceHostTokenEnvVar+"="+localWorkspaceHostToken(cfg, paths))
-	assertEnvContains(t, env, "LAZYMIND_LOCAL_WORKSPACE_BROKER_URL=http://127.0.0.1:"+strconv.Itoa(cfg.LocalProxy.Port))
 }
 
 func TestWorkflowExecutorTokenMatchesCoreAndAlgorithmOverride(t *testing.T) {

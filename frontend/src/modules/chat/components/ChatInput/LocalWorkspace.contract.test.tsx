@@ -92,6 +92,11 @@ vi.mock("react-i18next", () => ({
       "chat.workspace.revoke": "撤销授权",
       "chat.workspace.revokeTitle": "撤销工作区授权？",
       "chat.workspace.selectionExpired": "文件夹选择已过期，请重新选择。",
+      "chat.workspace.authorizedSuccess": "工作区已授权",
+      "chat.workspace.switchedSuccess": "工作区已切换",
+      "chat.workspace.clearedSuccess": "已停用本地工作区",
+      "chat.workspace.permissionUpdated": "权限已修改",
+      "common.close": "关闭",
     }[key] ?? key),
   }),
 }));
@@ -268,6 +273,30 @@ describe("Local/Desktop task workspace composer contract", () => {
     expect(mocks.selectLocalWorkspace).not.toHaveBeenCalled();
   });
 
+  it("toggles the workspace menu and filters recent workspaces by name or path", async () => {
+    vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: { data: { items: [
+        { workspace_id: "one", display_name: "Alpha", path: "/projects/finance", status: "active" },
+        { workspace_id: "two", display_name: "Beta", path: "/projects/research", status: "active" },
+      ] } },
+    } as never);
+    renderComposer(true);
+    const trigger = screen.getByRole("button", { name: "选择工作区" });
+
+    fireEvent.click(trigger);
+    const search = await screen.findByRole("searchbox", { name: "搜索工作区" });
+    expect(screen.getByRole("button", { name: /Alpha/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Beta/ })).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "finance" } });
+    expect(screen.getByRole("button", { name: /Alpha/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Beta/ })).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "Beta" } });
+    expect(screen.queryByRole("button", { name: /Alpha/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Beta/ })).toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("searchbox", { name: "搜索工作区" })).not.toBeInTheDocument();
+  });
+
   it("requires the LazyMind authorization modal after the native macOS selection", async () => {
     mocks.selectLocalWorkspace.mockResolvedValue({
       canceled: false,
@@ -311,6 +340,31 @@ describe("Local/Desktop task workspace composer contract", () => {
     expect(screen.queryByRole("dialog", { name: "首次使用时需要授权" })).not.toBeInTheDocument();
     expect(mocks.authorizeLocalWorkspace).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "选择工作区" })).toBeInTheDocument();
+  });
+
+  it("closes authorization by close button or backdrop without authorizing", async () => {
+    mocks.selectLocalWorkspace.mockResolvedValue({
+      canceled: false,
+      selection_token: "selection-token",
+      display_name: "Documents",
+      path: "/Users/alice/Documents",
+    });
+    const { container } = renderComposer(true);
+    const openCandidate = async () => {
+      fireEvent.click(screen.getByRole("button", { name: "选择工作区" }));
+      fireEvent.click(await screen.findByRole("button", { name: "打开本地文件夹" }));
+      return screen.findByRole("dialog", { name: "首次使用时需要授权" });
+    };
+
+    await openCandidate();
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "首次使用时需要授权" })).not.toBeInTheDocument();
+    await openCandidate();
+    const backdrop = container.querySelector(".local-workspace-modal-backdrop");
+    expect(backdrop).not.toBeNull();
+    fireEvent.mouseDown(backdrop as Element);
+    expect(screen.queryByRole("dialog", { name: "首次使用时需要授权" })).not.toBeInTheDocument();
+    expect(mocks.authorizeLocalWorkspace).not.toHaveBeenCalled();
   });
 
   it("authorizes by one-time token and sends only workspace_id with the first task", async () => {
@@ -497,6 +551,85 @@ describe("Local/Desktop task workspace composer contract", () => {
     expect(screen.getByRole("menuitem", { name: "全部允许" })).toBeInTheDocument();
   });
 
+  it("clears a selected workspace and disables its permission control", async () => {
+    vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: { data: { items: [{
+        workspace_id: "workspace-active",
+        display_name: "Active Project",
+        path: "/Users/alice/Active Project",
+        status: "active",
+      }] } },
+    } as never);
+    const success = vi.spyOn(message, "success").mockImplementation(() => ({}) as never);
+    renderComposer(true);
+    fireEvent.click(screen.getByRole("button", { name: "选择工作区" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Active Project/ }));
+    const permission = screen.getByRole("button", { name: /按需确认/ });
+    expect(permission).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Active Project/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "不使用本地工作区" }));
+    expect(screen.getByRole("button", { name: "选择工作区" })).toBeInTheDocument();
+    expect(permission).toBeDisabled();
+    expect(success).toHaveBeenCalledWith("已停用本地工作区");
+  });
+
+  it("does not submit a hidden workspace after switching Chat and Work modes", async () => {
+    vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: { data: { items: [{
+        workspace_id: "workspace-active",
+        display_name: "Active Project",
+        path: "/Users/alice/Active Project",
+        status: "active",
+      }] } },
+    } as never);
+    const { rerender } = renderComposer(true, "执行任务", "temp_task-1");
+    fireEvent.click(screen.getByRole("button", { name: "选择工作区" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Active Project/ }));
+
+    rerender(
+      <ChatInput value="执行任务" onChange={vi.fn()} onSend={mocks.onSend}
+        isChatContent showHistoryList={false} showHistoryButton={false}
+        showPromptSuggestions={false} showSkillDeposit={false}
+        runInBackground={false} sessionId="temp_task-1" />,
+    );
+    rerender(
+      <ChatInput value="执行任务" onChange={vi.fn()} onSend={mocks.onSend}
+        isChatContent showHistoryList={false} showHistoryButton={false}
+        showPromptSuggestions={false} showSkillDeposit={false}
+        runInBackground sessionId="temp_task-1" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(mocks.onSend).toHaveBeenCalledOnce();
+    expect(mocks.onSend.mock.calls[0][0]).not.toHaveProperty("workspace_id");
+    expect(mocks.onSend.mock.calls[0][0]).not.toHaveProperty("workspace_permission_mode");
+  });
+
+  it("canceling revoke for another recent workspace preserves current selection", async () => {
+    vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: { data: { items: [
+        { workspace_id: "one", display_name: "Alpha", path: "/projects/alpha", status: "active" },
+        { workspace_id: "two", display_name: "Beta", path: "/projects/beta", status: "active" },
+      ] } },
+    } as never);
+    const { container } = renderComposer(true, "执行任务");
+    fireEvent.click(screen.getByRole("button", { name: "选择工作区" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Alpha/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Alpha/ }));
+    await waitFor(() => {
+      expect(container.querySelectorAll(".local-workspace-row-revoke")).toHaveLength(2);
+    });
+    const revokeButtons = container.querySelectorAll(".local-workspace-row-revoke");
+    fireEvent.click(revokeButtons[1]);
+    expect(screen.getByRole("dialog", { name: "撤销工作区授权？" })).toHaveTextContent("/projects/beta");
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(screen.getByRole("button", { name: /Alpha/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(mocks.onSend).toHaveBeenCalledWith(expect.objectContaining({ workspace_id: "one" }));
+  });
+
   it("sends the selected task permission mode and keeps workspace and permission menus mutually exclusive", async () => {
     vi.spyOn(axiosInstance, "get").mockResolvedValue({
       data: { data: { items: [{
@@ -541,11 +674,34 @@ describe("Local/Desktop task workspace composer contract", () => {
     const dialog = screen.getByRole("dialog", { name: "要开启“全部允许”吗？" });
     expect(dialog).toHaveTextContent("文件风险");
     expect(dialog).toHaveTextContent("命令风险");
-    expect(dialog).toHaveTextContent("互联网和已连接应用风险");
-    expect(dialog.querySelectorAll("li")).toHaveLength(3);
+    expect(dialog).toHaveTextContent("联网风险");
+    expect(dialog).toHaveTextContent("已连接应用风险");
+    expect(dialog.querySelectorAll("li")).toHaveLength(4);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "要开启“全部允许”吗？" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /按需确认/ })).toBeInTheDocument();
+  });
+
+  it("switches to allow-all only after confirmation and reports success", async () => {
+    vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: { data: { items: [{
+        workspace_id: "workspace-active",
+        display_name: "Active Project",
+        path: "/Users/alice/Active Project",
+        status: "active",
+      }] } },
+    } as never);
+    const success = vi.spyOn(message, "success").mockImplementation(() => ({}) as never);
+    renderComposer(true);
+    fireEvent.click(screen.getByRole("button", { name: "选择工作区" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Active Project/ }));
+    fireEvent.click(screen.getByRole("button", { name: /按需确认/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "全部允许" }));
+
+    expect(screen.getByRole("button", { name: /按需确认/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认开启" }));
+    expect(screen.getByRole("button", { name: /全部允许/ })).toBeInTheDocument();
+    expect(success).toHaveBeenCalledWith("权限已修改");
   });
 
   it("closes first-use authorization on backdrop or Escape without changing workspace", async () => {

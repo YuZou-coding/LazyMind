@@ -1,6 +1,7 @@
 package subagent
 
 import (
+	"encoding/json"
 	"testing"
 
 	"lazymind/core/common/orm"
@@ -27,6 +28,26 @@ func TestIsTerminal(t *testing.T) {
 				t.Fatalf("got %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestToolLimitPendingTaskEventKeepsApprovalPayload(t *testing.T) {
+	event := TaskEvent{
+		Type:             "tool_limit_pending",
+		TaskID:           "task-approval",
+		ToolLimitPending: json.RawMessage(`{"decision_id":"decision-1","approval_kind":"tool"}`),
+	}
+	body, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	pending, ok := decoded["tool_limit_pending"].(map[string]any)
+	if !ok || pending["decision_id"] != "decision-1" {
+		t.Fatalf("pending approval was lost: %s", body)
 	}
 }
 

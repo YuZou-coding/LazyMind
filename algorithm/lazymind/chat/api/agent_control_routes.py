@@ -38,7 +38,15 @@ async def tool_limit_decision(req: ToolLimitDecisionRequest) -> AgentControlResp
             detail='action must be continue, summarize, allow_once, or deny',
         )
     sid = _active_sessions.get(req.conversation_id.strip())
-    if not sid or not tool_limit_decision_coordinator.submit(sid, req.decision_id, action):
+    submitted = (
+        tool_limit_decision_coordinator.submit(sid, req.decision_id, action)
+        if sid else False
+    )
+    if not submitted:
+        submitted = tool_limit_decision_coordinator.submit_by_decision(
+            req.conversation_id, req.decision_id, action,
+        )
+    if not submitted:
         return AgentControlResponse(ok=False)
     return AgentControlResponse(ok=True)
 

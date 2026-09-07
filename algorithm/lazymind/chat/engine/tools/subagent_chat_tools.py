@@ -8,6 +8,7 @@ import lazyllm
 
 from lazymind.chat.engine.subagent import SUBAGENT_ATTACHMENT_CONTEXT_KEY
 from lazymind.chat.engine.subagent.db import TaskQueryDB
+from lazymind.chat.subagent_workspace_context import trusted_subagent_parent_config
 from lazyllm.tools.agent.base import _write_agent_data
 
 # How often to emit a heartbeat while polling in auto mode (seconds).
@@ -141,6 +142,10 @@ def create_subagent(
     """
     mode = _mode()
     params = dict(params or {})
+    params.pop('parent_agentic_config', None)
+    parent_agentic_config = trusted_subagent_parent_config(_agentic_config())
+    if parent_agentic_config:
+        params['parent_agentic_config'] = parent_agentic_config
     params['_thinking_depth'] = str(_agentic_config().get('thinking_depth') or 'medium')
     trace = lazyllm.get_trace_context()
     if trace.trace_id and trace.parent_span_id:

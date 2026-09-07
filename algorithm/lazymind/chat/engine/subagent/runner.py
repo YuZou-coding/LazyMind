@@ -33,6 +33,7 @@ from lazymind.chat.engine.agent_runtime import (
 )
 from lazymind.chat.engine.prompts import add_standard_system_sections
 from lazymind.chat.engine.tools.local_file.workspace import grep, read_file
+from lazymind.chat.engine.tools.workspace_shell import subagent_workspace_shell_tools
 from lazymind.chat.service.component.event_translator import AgentEventFrameTranslator
 from lazymind.chat.service.component.tool_registry import (
     ATTACHMENT_EDIT_TOOL_CONFIG,
@@ -321,6 +322,9 @@ def _build_subagent_tools(
         base.extend(config.tool for config in attachment_configs)
     if extra_tools:
         base.extend(extra_tools)
+    base.extend(subagent_workspace_shell_tools(
+        lazyllm.globals.get('agentic_config') or {}, tools_only=tools_only,
+    ))
     return base
 
 
@@ -467,6 +471,8 @@ def _build_agentic_config(
         'conversation_id': str(
             task.get('conversation_id') or agentic_config.get('conversation_id') or ''
         ).strip(),
+        'run_id': str(task.get('task_id') or task.get('id') or '').strip(),
+        'subagent_task_id': str(task.get('task_id') or task.get('id') or '').strip(),
         'is_subagent': True,
         'agent_type': effective_agent_type,
         'thinking_depth': str(
@@ -1165,6 +1171,13 @@ async def run_subagent_stream(
                                     'current_phase': '执行中...'})
                 # Translate all events (text/think/tool_calls/tool_results) via shared translator.
                 for frame in translator.feed(item):
+                    if frame.get('tool_limit_pending'):
+                        yield _sse({
+                            'type': 'tool_limit_pending',
+                            'task_id': task_id,
+                            'tool_limit_pending': frame['tool_limit_pending'],
+                        })
+                        continue
                     ev_type = 'think' if frame.get('think') else 'text'
                     yield _sse({'type': ev_type, 'task_id': task_id,
                                 'think': frame.get('think'), 'text': frame.get('text')})

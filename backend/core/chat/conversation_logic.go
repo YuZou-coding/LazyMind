@@ -2651,11 +2651,15 @@ func handleTaskCreated(
 	if ev.AgentType == "workflow_step" {
 		return handleWorkflowStepCreated(chatCtx, db, stateStore, convID, historyID, userID, ev, llmConfig, toolConfig, workflowMode)
 	}
+	params, err := authoritativeSubagentParams(chatCtx, db, convID, userID, ev.Params)
+	if err != nil {
+		return nil, fmt.Errorf("resolve subagent workspace: %w", err)
+	}
 	mode := ev.Mode
 	if mode != "auto" && mode != "manual" {
 		mode = "auto"
 	}
-	paramsJSON, _ := json.Marshal(ev.Params)
+	paramsJSON, _ := json.Marshal(params)
 	inputKeysJSON, _ := json.Marshal(ev.InputSlots)
 	outputKeysJSON, _ := json.Marshal(ev.OutputSlots)
 	workspacePath := subagent.WorkspacePath(userID, ev.TaskID)
@@ -2671,7 +2675,7 @@ func handleTaskCreated(
 			go subagent.Run(context.Background(), db, stateStore, subagent.RunRequest{
 				TaskID:        existing.ID,
 				AgentType:     existing.AgentType,
-				Params:        ev.Params,
+				Params:        params,
 				WorkspacePath: existing.WorkspacePath,
 				Tools:         ev.Tools,
 				DBDSN:         subagent.DBDSN(),
@@ -2716,7 +2720,7 @@ func handleTaskCreated(
 	go subagent.Run(context.Background(), db, stateStore, subagent.RunRequest{
 		TaskID:        task.ID,
 		AgentType:     ev.AgentType,
-		Params:        ev.Params,
+		Params:        params,
 		WorkspacePath: workspacePath,
 		Tools:         ev.Tools,
 		DBDSN:         subagent.DBDSN(),

@@ -12,6 +12,7 @@ import {
 } from "@/modules/chat/constants/chat";
 import { useWorkflowStore } from "@/modules/chat/store/workflowPanel";
 import type { ChatSource } from "@/modules/chat/utils/sourceAdapter";
+import type { ToolLimitPending } from "@/modules/chat/components/ToolLimitCard";
 
 let convReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let workflowRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -126,6 +127,7 @@ export interface SubAgentTask {
   sources: ChatSource[];
   artifact_streams: TaskArtifactStream[];
   execution_log: TaskLogEntry[];
+  tool_limit_pending?: ToolLimitPending;
 }
 
 function artifactKey(a: TaskArtifact): string {
@@ -320,6 +322,9 @@ export const useTaskCenterStore = create<TaskCenterStore>()((set, get) => ({
           task.current_phase = event.current_phase ?? task.current_phase;
           task.estimated_sec = event.estimated_sec ?? task.estimated_sec;
           break;
+        case "tool_limit_pending":
+          task.tool_limit_pending = event.tool_limit_pending;
+          break;
         case "artifact": {
           const newArtifact: TaskArtifact = {
             slot: event.slot,
@@ -418,11 +423,13 @@ export const useTaskCenterStore = create<TaskCenterStore>()((set, get) => ({
           break;
         }
         case "done":
+          task.tool_limit_pending = undefined;
           task.status = (event.status as TaskStatus) ?? "succeeded";
           task.progress_pct = 100;
           task.summary = event.summary ?? task.summary;
           break;
         case "error":
+          task.tool_limit_pending = undefined;
           task.status = (event.status as TaskStatus) ?? "failed";
           task.summary = event.message || localizeErrorCode(
             event.error_code ?? event.errorCode ?? event.code,

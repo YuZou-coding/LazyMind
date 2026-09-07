@@ -10,6 +10,7 @@ import lazyllm
 import lazyllm.module.stream_helper as _sh
 import lazyllm.tools.agent as _agent_mod
 from lazyllm.tools.agent.toolError import tool_failure
+from lazyllm.tools.agent.base import _write_agent_data
 from lazymind.config import config as _cfg
 from lazymind.chat.engine.tools.infra import CitationResultMiddleware
 from lazymind.chat.engine.tools.session_env import redact_session_env_arguments
@@ -213,11 +214,119 @@ class ToolCallGuard:
         message = f'[Repeated Tool Call] {name}: {message}'
         return tool_failure(message)
 
+    @staticmethod
+    def _permission_mode() -> str:
+        config = lazyllm.globals.get('agentic_config') or {}
+        mode = str(config.get('workspace_permission_mode') or '').strip()
+        if not mode:
+            source = next((
+                item for item in (config.get('local_fs_sources') or [])
+                if isinstance(item, dict) and item.get('workspace_id')
+            ), {})
+            mode = str(source.get('workspace_permission_mode') or 'ask_as_needed')
+        return mode if mode in {'always_ask', 'ask_as_needed', 'allow_all'} else 'ask_as_needed'
+
+    @staticmethod
+    def _strip_model_permissions(tool_call: dict[str, Any]) -> dict[str, Any]:
+        sanitized = dict(tool_call)
+        function = dict(sanitized.get('function') or {})
+        arguments = _parse_tool_arguments(function)
+        if isinstance(arguments, dict) and 'allow_unsafe' in arguments:
+            arguments = dict(arguments)
+            arguments['allow_unsafe'] = False
+            function['arguments'] = arguments
+        sanitized['function'] = function
+        return sanitized
+
+    def _resolve_approval(
+        self,
+        tool_call: dict[str, Any],
+        result: Any,
+        *,
+        verbose: bool,
+        allowed_tool_names: set[str] | None,
+        permission_mode: str,
+    ) -> Any:
+        if not (
+            isinstance(result, dict) and result.get('ok') is False and
+            result.get('needs_approval') is True
+        ):
+            return result
+        function = tool_call.get('function') or {}
+        arguments = _parse_tool_arguments(function)
+        if not isinstance(arguments, dict):
+            return result
+        name = str(function.get('name') or '')
+        config = lazyllm.globals.get('agentic_config')
+        if not isinstance(config, dict):
+            config = {}
+            lazyllm.globals['agentic_config'] = config
+        coordinator = tool_limit_decision_coordinator
+        decision_id = uuid.uuid4().hex
+        sid_value = lazyllm.globals._sid
+        auto_allow = permission_mode == 'allow_all'
+        if not auto_allow:
+            coordinator._register(
+                sid_value, decision_id, str(config.get('conversation_id') or ''),
+            )
+        try:
+            command = str(arguments.get('command') or arguments.get('cmd') or '')
+            file_path = str(arguments.get('filepath') or arguments.get('path') or '')
+            if auto_allow:
+                action = 'allow_once'
+            else:
+                _write_agent_data(
+                    'tool_limit_pending',
+                    decision_id=decision_id,
+                    approval_kind='tool',
+                    tool_name=name,
+                    command=command,
+                    path=file_path,
+                    cwd=str(arguments.get('cwd') or '.'),
+                    reason=str(result.get('value') or ''),
+                    used_rounds=0,
+                    round_limit=0,
+                    expanded_max_rounds=0,
+                    timeout_seconds=600,
+                )
+                action = coordinator._wait_for_action(decision_id, 600)
+            if action != 'allow_once':
+                return tool_failure('The user denied or did not approve this operation.')
+
+            replay = dict(tool_call)
+            replay_function = dict(function)
+            replay_arguments = dict(arguments)
+            prior_sensitive = list(config.get('approved_sensitive_paths') or [])
+            prior_writes = list(config.get('approved_workspace_write_paths') or [])
+            prior_apps = list(config.get('approved_connected_app_tools') or [])
+            if command:
+                replay_arguments['allow_unsafe'] = True
+            elif file_path:
+                config['approved_sensitive_paths'] = prior_sensitive + [file_path]
+                config['approved_workspace_write_paths'] = prior_writes + [file_path]
+            else:
+                config['approved_connected_app_tools'] = prior_apps + [name]
+            replay_function['arguments'] = replay_arguments
+            replay['function'] = replay_function
+            try:
+                return self._manager(
+                    [replay], verbose=verbose, allowed_tool_names=allowed_tool_names,
+                )[0]
+            finally:
+                config['approved_sensitive_paths'] = prior_sensitive
+                config['approved_workspace_write_paths'] = prior_writes
+                config['approved_connected_app_tools'] = prior_apps
+        finally:
+            if not auto_allow:
+                coordinator._unregister(sid_value, decision_id)
+
     def __call__(self, tools: Any, verbose: bool = False,
                  allowed_tool_names: set[str] | None = None) -> Any:
         if self._cancel_check is not None:
             self._cancel_check(None)
         tool_calls = [tools] if isinstance(tools, dict) else list(tools or [])
+        tool_calls = [self._strip_model_permissions(tool_call) for tool_call in tool_calls]
+        permission_mode = self._permission_mode()
         results: list[Any] = [None] * len(tool_calls)
         pending: list[dict[str, Any]] = []
         pending_indices: list[int] = []
@@ -226,6 +335,28 @@ class ToolCallGuard:
         for index, tool_call in enumerate(tool_calls):
             function = tool_call.get('function') or {}
             name = str(function.get('name') or '')
+            config = lazyllm.globals.get('agentic_config') or {}
+            connected_tools = set(config.get('connected_app_tool_names') or [])
+            network_tools = set(config.get('network_tool_names') or [])
+            approved_apps = set(config.get('approved_connected_app_tools') or [])
+            if (
+                name in connected_tools | network_tools and permission_mode == 'always_ask'
+                and name not in approved_apps
+            ):
+                emit_tool_call(tool_call)
+                result = self._resolve_approval(
+                    tool_call,
+                    tool_failure(
+                        f'Connected app operation {name!r} requires approval.',
+                        needs_approval=True,
+                    ),
+                    verbose=verbose,
+                    allowed_tool_names=allowed_tool_names,
+                    permission_mode=permission_mode,
+                )
+                results[index] = result
+                emit_tool_result(tool_call, result)
+                continue
             if _requires_expanded_budget(name):
                 workspace = lazyllm.locals.get('_lazyllm_agent', {}).get('workspace')
                 if (
@@ -313,6 +444,13 @@ class ToolCallGuard:
             )
             elapsed = time.perf_counter() - started_at
             for index, tool_call, result in zip(pending_indices, pending, pending_results):
+                result = self._resolve_approval(
+                    tool_call,
+                    result,
+                    verbose=verbose,
+                    allowed_tool_names=allowed_tool_names,
+                    permission_mode=permission_mode,
+                )
                 results[index] = result
                 emit_tool_result(tool_call, result)
                 name = str((tool_call.get('function') or {}).get('name') or '')

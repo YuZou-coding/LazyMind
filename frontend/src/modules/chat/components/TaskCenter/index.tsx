@@ -41,6 +41,8 @@ import {
   getSourceSubtitle,
 } from "@/modules/chat/utils/sourceAdapter";
 import type { WorkflowSessionStep } from "@/modules/chat/store/workflowPanel";
+import ToolLimitCard from "@/modules/chat/components/ToolLimitCard";
+import { decideToolLimit } from "@/modules/chat/utils/request";
 import {
   buildOrdinaryTaskTimeline,
   ordinaryTaskDurationSeconds,
@@ -513,7 +515,7 @@ function StatusBadge({ status }: { status: TaskStatus }) {
   );
 }
 
-function TaskCard({ task }: { task: SubAgentTask }) {
+function TaskCard({ task, conversationId }: { task: SubAgentTask; conversationId: string }) {
   const [collapsed, setCollapsed] = useState(false);
   const [cardHeight, setCardHeight] = useState<number>(0);
   const cardDragRef = useRef<{ startY: number; startH: number } | null>(null);
@@ -592,6 +594,23 @@ function TaskCard({ task }: { task: SubAgentTask }) {
             </div>
           )}
           <ExecutionLog log={task.execution_log} isRunning={isRunning} />
+          {isRunning && task.tool_limit_pending ? (
+            <ToolLimitCard
+              key={task.tool_limit_pending.decision_id}
+              pending={task.tool_limit_pending}
+              onDecision={async (action) => {
+                await decideToolLimit(
+                  conversationId,
+                  task.tool_limit_pending!.decision_id,
+                  action,
+                );
+                useTaskCenterStore.getState().upsertTask(conversationId, {
+                  task_id: task.task_id,
+                  tool_limit_pending: undefined,
+                });
+              }}
+            />
+          ) : null}
           <ArtifactGrid artifacts={task.artifacts} />
           <ReferenceSources sources={task.sources} />
         </>
@@ -1389,7 +1408,7 @@ const TaskCenter = (props: Props) => {
           <div className="task-empty">{t("taskCenter.empty")}</div>
         ) : (
           filteredTasks.map((task) => (
-            <TaskCard key={task.task_id} task={task} />
+            <TaskCard key={task.task_id} task={task} conversationId={sessionId} />
           ))
         )}
       </div>

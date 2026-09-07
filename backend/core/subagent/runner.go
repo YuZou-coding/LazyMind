@@ -69,8 +69,9 @@ type TaskEvent struct {
 	Summary      string          `json:"summary,omitempty"`
 	Message      string          `json:"message,omitempty"`
 	// Tool step events forwarded from SubAgent runner for frontend display.
-	ToolCalls   json.RawMessage `json:"tool_calls,omitempty"`
-	ToolResults json.RawMessage `json:"tool_results,omitempty"`
+	ToolCalls        json.RawMessage `json:"tool_calls,omitempty"`
+	ToolResults      json.RawMessage `json:"tool_results,omitempty"`
+	ToolLimitPending json.RawMessage `json:"tool_limit_pending,omitempty"`
 	// Text / think streaming content.
 	Text  string `json:"text,omitempty"`
 	Think string `json:"think,omitempty"`
@@ -230,11 +231,11 @@ func routeEventWithWorkflowHooks(ctx context.Context, db *gorm.DB, stateStore st
 		if terminalHook {
 			routeWorkflowStepStatus(ctx, db, stateStore, ev.TaskID, status, ev.Message)
 		}
-	case "artifact_stream_start", "artifact_stream", "artifact_stream_end", "artifact_stream_abort":
+	case "artifact_stream_start", "artifact_stream", "artifact_stream_end", "artifact_stream_abort", "tool_limit_pending":
 		// Draft preview events are intentionally ephemeral: append to the Task
 		// stream below, without creating DB steps, artifacts, or workflow revisions.
 	}
-	if isArtifactStreamEvent(ev.Type) || ev.Type == "progress" ||
+	if isArtifactStreamEvent(ev.Type) || ev.Type == "tool_limit_pending" || ev.Type == "progress" ||
 		ev.Type == "done" || ev.Type == "error" {
 		// Deliver preview, phase, and terminal updates immediately to connected
 		// clients, without waiting for the Redis replay copy.
