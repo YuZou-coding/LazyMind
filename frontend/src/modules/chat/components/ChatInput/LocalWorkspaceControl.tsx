@@ -400,25 +400,27 @@ export default function LocalWorkspaceControl({
 
   return (
     <div className="local-workspace-control" ref={controlRef}>
-      <button
-        type="button"
-        className={`input-bottom-actions-left-item local-workspace-trigger${open ? " selected" : ""}`}
-        aria-label={label}
-        aria-readonly={readonly ? "true" : undefined}
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => {
-          if (readonly && !selected) return;
-          if (!open) setAuthorizationError("");
-          setPermissionOpen(false);
-          setOpen((current) => !current);
-          if (!open) void loadRecent();
-        }}
-      >
-        <FolderOutlined />
-        <span>{label}</span>
-        {!readonly ? <DownOutlined className="local-workspace-arrow" /> : null}
-      </button>
+      {!existingTask || selected ? (
+        <button
+          type="button"
+          className={`input-bottom-actions-left-item local-workspace-trigger${open ? " selected" : ""}`}
+          aria-label={label}
+          aria-readonly={readonly ? "true" : undefined}
+          aria-expanded={open}
+          disabled={disabled}
+          onClick={() => {
+            if (readonly && !selected) return;
+            if (!open) setAuthorizationError("");
+            setPermissionOpen(false);
+            setOpen((current) => !current);
+            if (!open) void loadRecent();
+          }}
+        >
+          <FolderOutlined />
+          <span>{label}</span>
+          {!readonly ? <DownOutlined className="local-workspace-arrow" /> : null}
+        </button>
+      ) : null}
 
       <button
         type="button"

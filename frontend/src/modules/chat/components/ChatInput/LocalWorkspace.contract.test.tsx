@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { message } from "antd";
 import { forwardRef, useImperativeHandle } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -513,18 +513,26 @@ describe("Local/Desktop task workspace composer contract", () => {
   });
 
   it("does not let an existing Work task without a workspace bind one later", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      code: 0,
-      message: "ok",
-      data: { status: "none" },
-    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    let resolveWorkspaceLookup!: (response: Response) => void;
+    const workspaceLookup = new Promise<Response>((resolve) => {
+      resolveWorkspaceLookup = resolve;
+    });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(workspaceLookup);
 
     renderComposer(true, "继续任务", "task-without-workspace");
 
-    const workspaceButton = await screen.findByRole("button", { name: "不使用本地工作区" });
-    expect(workspaceButton).toHaveAttribute("aria-readonly", "true");
-    fireEvent.click(workspaceButton);
+    await act(async () => {
+      resolveWorkspaceLookup(new Response(JSON.stringify({
+        code: 0,
+        message: "ok",
+        data: { status: "none" },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      await workspaceLookup;
+    });
+
+    expect(screen.queryByRole("button", { name: "不使用本地工作区" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "打开本地文件夹" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "按需确认" })).toBeDisabled();
   });
 
   it("enables the default ask-as-needed permission menu only after selecting a workspace", async () => {
