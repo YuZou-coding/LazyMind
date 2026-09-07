@@ -392,6 +392,7 @@ interface ChatInputProps {
   multimodalEmbeddingReady?: boolean | null;
   rerankReady?: boolean | null;
   disabled?: boolean;
+  workspacePermissionDisabled?: boolean;
   disabledReason?: string;
   disabledDescription?: ReactNode;
   disabledAction?: ReactNode;
@@ -593,6 +594,7 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
       multimodalEmbeddingReady,
       rerankReady,
       disabled = false,
+      workspacePermissionDisabled = disabled,
       disabledReason,
       disabledDescription,
       disabledAction,
@@ -1427,6 +1429,7 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
                     <LocalWorkspaceControl
                       sessionId={sessionId}
                       disabled={disabled}
+                      permissionDisabled={workspacePermissionDisabled}
                       isStreaming={isStreaming}
                       onSelectedWorkspaceChange={setSelectedWorkspaceId}
                       onPermissionModeChange={setWorkspacePermissionMode}

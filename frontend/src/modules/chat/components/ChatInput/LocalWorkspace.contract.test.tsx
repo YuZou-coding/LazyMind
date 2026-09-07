@@ -574,6 +574,44 @@ describe("Local/Desktop task workspace composer contract", () => {
     expect(screen.getByRole("menu", { name: "权限模式" })).toBeInTheDocument();
   });
 
+  it("keeps permission selection enabled while an existing background task is waiting", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      code: 0,
+      message: "ok",
+      data: {
+        status: "active",
+        permission_mode: "ask_as_needed",
+        permission_version: 3,
+        workspace: {
+          workspace_id: "workspace-active",
+          display_name: "Active Project",
+          path: "/Users/alice/Active Project",
+          status: "active",
+        },
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    render(
+      <ChatInput
+        value=""
+        onChange={vi.fn()}
+        onSend={mocks.onSend}
+        isChatContent
+        showHistoryList={false}
+        showHistoryButton={false}
+        showPromptSuggestions={false}
+        showSkillDeposit={false}
+        runInBackground
+        sessionId="task-waiting"
+        disabled
+        workspacePermissionDisabled={false}
+      />,
+    );
+
+    const permission = await screen.findByRole("button", { name: "按需确认" });
+    await waitFor(() => expect(permission).toBeEnabled());
+  });
+
   it("hides the unbound workspace trigger when binding metadata has no display name", async () => {
     let resolveWorkspaceLookup!: (response: Response) => void;
     const workspaceLookup = new Promise<Response>((resolve) => {

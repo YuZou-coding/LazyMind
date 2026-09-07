@@ -51,6 +51,7 @@ interface DesktopWorkspaceBridge {
 interface Props {
   sessionId?: string;
   disabled?: boolean;
+  permissionDisabled?: boolean;
   isStreaming?: boolean;
   onSelectedWorkspaceChange: (workspaceId?: string) => void;
   onPermissionModeChange: (mode: WorkspacePermissionMode) => void;
@@ -149,6 +150,7 @@ function catalogWorkspaceError(error: unknown): string {
 export default function LocalWorkspaceControl({
   sessionId,
   disabled,
+  permissionDisabled = disabled,
   isStreaming,
   onSelectedWorkspaceChange,
   onPermissionModeChange,
@@ -430,7 +432,7 @@ export default function LocalWorkspaceControl({
         className={`input-bottom-actions-left-item local-workspace-permission-trigger${permissionOpen ? " selected" : ""}`}
         aria-label={permissionLabel}
         aria-expanded={permissionOpen}
-        disabled={disabled || (!existingTask && isStreaming) || !selected || selected.status !== "active"}
+        disabled={permissionDisabled || (!existingTask && isStreaming) || !selected || selected.status !== "active"}
         onClick={() => {
           setOpen(false);
           setPermissionOpen((current) => !current);

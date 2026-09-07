@@ -498,6 +498,7 @@ const ChatContainerComponent = forwardRef<ChatImperativeProps, ChatContainerProp
               isStreaming={conversation.isStreaming}
               onStopGeneration={conversation.stopGeneration}
               disabled={!canChat || conversation.runtimeWaiting}
+              workspacePermissionDisabled={!canChat}
               disabledReason={canChat ? undefined : disabledReason}
               disabledDescription={canChat ? undefined : disabledDescription}
               disabledAction={canChat ? undefined : disabledAction}
