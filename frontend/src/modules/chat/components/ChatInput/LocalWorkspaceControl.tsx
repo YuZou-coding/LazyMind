@@ -51,6 +51,7 @@ interface DesktopWorkspaceBridge {
 interface Props {
   sessionId?: string;
   disabled?: boolean;
+  isStreaming?: boolean;
   onSelectedWorkspaceChange: (workspaceId?: string) => void;
   onPermissionModeChange: (mode: WorkspacePermissionMode) => void;
 }
@@ -148,6 +149,7 @@ function catalogWorkspaceError(error: unknown): string {
 export default function LocalWorkspaceControl({
   sessionId,
   disabled,
+  isStreaming,
   onSelectedWorkspaceChange,
   onPermissionModeChange,
 }: Props) {
@@ -397,17 +399,18 @@ export default function LocalWorkspaceControl({
   const label = selected?.display_name
     ? `${selected.display_name}${statusSuffix ? ` · ${statusSuffix}` : ""}`
     : (existingTask ? t("chat.workspace.none") : t("chat.workspace.select"));
+  const showWorkspaceTrigger = !existingTask || Boolean(selected?.display_name?.trim());
 
   return (
     <div className="local-workspace-control" ref={controlRef}>
-      {!existingTask || selected ? (
+      {showWorkspaceTrigger ? (
         <button
           type="button"
           className={`input-bottom-actions-left-item local-workspace-trigger${open ? " selected" : ""}`}
           aria-label={label}
           aria-readonly={readonly ? "true" : undefined}
           aria-expanded={open}
-          disabled={disabled}
+          disabled={disabled || isStreaming}
           onClick={() => {
             if (readonly && !selected) return;
             if (!open) setAuthorizationError("");
@@ -427,7 +430,7 @@ export default function LocalWorkspaceControl({
         className={`input-bottom-actions-left-item local-workspace-permission-trigger${permissionOpen ? " selected" : ""}`}
         aria-label={permissionLabel}
         aria-expanded={permissionOpen}
-        disabled={disabled || !selected || selected.status !== "active"}
+        disabled={disabled || (!existingTask && isStreaming) || !selected || selected.status !== "active"}
         onClick={() => {
           setOpen(false);
           setPermissionOpen((current) => !current);

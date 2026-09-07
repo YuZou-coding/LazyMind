@@ -1426,7 +1426,8 @@ const ChatInput = forwardRef<ChatInputImperativeProps, ChatInputProps>(
                   {runInBackground ? (
                     <LocalWorkspaceControl
                       sessionId={sessionId}
-                      disabled={disabled || isStreaming}
+                      disabled={disabled}
+                      isStreaming={isStreaming}
                       onSelectedWorkspaceChange={setSelectedWorkspaceId}
                       onPermissionModeChange={setWorkspacePermissionMode}
                     />

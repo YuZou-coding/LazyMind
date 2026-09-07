@@ -535,6 +535,76 @@ describe("Local/Desktop task workspace composer contract", () => {
     expect(screen.getByRole("button", { name: "按需确认" })).toBeDisabled();
   });
 
+  it("keeps permission selection enabled for an existing task while a response is streaming", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      code: 0,
+      message: "ok",
+      data: {
+        status: "active",
+        permission_mode: "ask_as_needed",
+        permission_version: 3,
+        workspace: {
+          workspace_id: "workspace-active",
+          display_name: "Active Project",
+          path: "/Users/alice/Active Project",
+          status: "active",
+        },
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    render(
+      <ChatInput
+        value=""
+        onChange={vi.fn()}
+        onSend={mocks.onSend}
+        isChatContent
+        showHistoryList={false}
+        showHistoryButton={false}
+        showPromptSuggestions={false}
+        showSkillDeposit={false}
+        runInBackground
+        sessionId="task-streaming"
+        isStreaming
+      />,
+    );
+
+    const permission = await screen.findByRole("button", { name: "按需确认" });
+    await waitFor(() => expect(permission).toBeEnabled());
+    fireEvent.click(permission);
+    expect(screen.getByRole("menu", { name: "权限模式" })).toBeInTheDocument();
+  });
+
+  it("hides the unbound workspace trigger when binding metadata has no display name", async () => {
+    let resolveWorkspaceLookup!: (response: Response) => void;
+    const workspaceLookup = new Promise<Response>((resolve) => {
+      resolveWorkspaceLookup = resolve;
+    });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(workspaceLookup);
+
+    renderComposer(true, "继续任务", "task-with-incomplete-workspace");
+
+    await act(async () => {
+      resolveWorkspaceLookup(new Response(JSON.stringify({
+        code: 0,
+        message: "ok",
+        data: {
+          status: "active",
+          workspace_id: "workspace-incomplete",
+          workspace: {
+            workspace_id: "workspace-incomplete",
+            display_name: "",
+            path: "",
+            status: "active",
+          },
+        },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      await workspaceLookup;
+    });
+
+    expect(screen.getByRole("button", { name: "按需确认" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "不使用本地工作区" })).not.toBeInTheDocument();
+  });
+
   it("enables the default ask-as-needed permission menu only after selecting a workspace", async () => {
     vi.spyOn(axiosInstance, "get").mockResolvedValue({
       data: { data: { items: [{
