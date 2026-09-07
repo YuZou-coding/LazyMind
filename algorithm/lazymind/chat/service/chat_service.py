@@ -423,8 +423,11 @@ def _build_chat_workspace_read_tools() -> list:
     return [grep, read_file]
 
 
-def _build_chat_artifact_tools() -> list:
+def _build_chat_artifact_tools(workspace_source: Any = None) -> list:
     """Workspace and artifact tools for the main ChatAgent."""
+    if isinstance(workspace_source, dict) and workspace_source.get('workspace_id'):
+        from lazymind.chat.engine.tools.local_fs import LocalFileToolkit
+        return [LocalFileToolkit()]
     from lazymind.chat.engine.tools.local_file.workspace import (
         list_dir,
         save_chat_artifact,
@@ -1293,7 +1296,9 @@ async def _handle_chat_impl(
     # so compacted tool results and referenced attachments can still be inspected.
     workspace_read_tools = _build_chat_workspace_read_tools()
     artifact_tools = (
-        workspace_read_tools if workflow_turn_is_bound else _build_chat_artifact_tools()
+        workspace_read_tools
+        if workflow_turn_is_bound
+        else _build_chat_artifact_tools(workspace_source)
     )
     workspace = chat_agent_workspace(user_id or '0', conversation_id)
     skill_listing_tools = (

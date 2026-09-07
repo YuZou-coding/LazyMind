@@ -1,4 +1,5 @@
 from lazymind.chat.service.chat_service import (
+    _build_chat_artifact_tools,
     _build_chat_workspace_read_tools,
     _normalize_document_filter,
     _should_register_subagent_tools,
@@ -6,6 +7,17 @@ from lazymind.chat.service.chat_service import (
     _workflow_collects_knowledge_internally,
     _workflow_turn_is_bound,
 )
+
+
+def test_bound_local_workspace_hides_generic_chat_workspace_tools():
+    tools = _build_chat_artifact_tools(
+        workspace_source={'workspace_id': 'workspace-1'},
+    )
+
+    assert len(tools) == 1
+    assert tools[0].__class__.__name__ == 'LocalFileToolkit'
+    assert 'read' in tools[0].__public_apis__
+    assert 'list_dir' not in {getattr(tool, '__name__', '') for tool in tools}
 
 
 def test_bound_workflow_keeps_only_read_only_workspace_tools():
