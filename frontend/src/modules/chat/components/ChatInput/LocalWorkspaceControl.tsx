@@ -182,13 +182,11 @@ export default function LocalWorkspaceControl({
     onSelectedWorkspaceChange(undefined);
     onPermissionModeChange("ask_as_needed");
     let active = true;
-    void fetch(`/api/core/conversations/${encodeURIComponent(sessionId)}:workspace`, {
-      credentials: "same-origin",
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("workspace unavailable");
-        return response.json();
-      })
+    void axiosInstance.get(
+      `/api/core/conversations/${encodeURIComponent(sessionId)}:workspace`,
+      { silentError: true } as never,
+    )
+      .then((response) => response.data)
       .then((payload) => {
         if (!active) return;
         const data = coreData<Record<string, unknown>>(payload);
@@ -312,15 +310,12 @@ export default function LocalWorkspaceControl({
     setLoading(true);
     setRevokeError("");
     try {
-      const response = await fetch(`/api/core/local-workspaces/${encodeURIComponent(target.workspace_id)}:revoke`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: target.version ?? 1 }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw payload;
-      const data = coreData<Partial<LocalWorkspaceView>>(payload);
+      const response = await axiosInstance.post(
+        `/api/core/local-workspaces/${encodeURIComponent(target.workspace_id)}:revoke`,
+        { version: target.version ?? 1 },
+        { silentError: true } as never,
+      );
+      const data = coreData<Partial<LocalWorkspaceView>>(response.data);
       const revokedCurrent = selected?.workspace_id === target.workspace_id;
       if (readonly && revokedCurrent) {
         setSelected((current) => current ? { ...current, ...data, status: "revoked" } : current);
@@ -401,10 +396,10 @@ export default function LocalWorkspaceControl({
   const label = selected?.display_name
     ? `${selected.display_name}${statusSuffix ? ` · ${statusSuffix}` : ""}`
     : (existingTask ? t("chat.workspace.none") : t("chat.workspace.select"));
-  const showWorkspaceTrigger = !existingTask || Boolean(selected?.display_name?.trim());
+  const showWorkspaceTrigger = !existingTask;
 
   return (
-    <div className="local-workspace-control" ref={controlRef}>
+    <div className={`local-workspace-control${existingTask ? " local-workspace-control--existing" : ""}`} ref={controlRef}>
       {showWorkspaceTrigger ? (
         <button
           type="button"

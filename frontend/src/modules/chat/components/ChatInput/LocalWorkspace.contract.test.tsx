@@ -464,11 +464,9 @@ describe("Local/Desktop task workspace composer contract", () => {
     });
   });
 
-  it("keeps an existing Work task read-only and revokes by workspace id after confirmation", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const url = String(input);
-      if (url === "/api/core/conversations/task-existing:workspace") {
-        return new Response(JSON.stringify({
+  it("hides the workspace indicator for an existing bound Work task", async () => {
+    const get = vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: {
         code: 0,
         message: "ok",
         data: {
@@ -478,55 +476,34 @@ describe("Local/Desktop task workspace composer contract", () => {
           status: "active",
           affected_task_count: 2,
         },
-        }), { status: 200, headers: { "Content-Type": "application/json" } });
-      }
-      if (url === "/api/core/local-workspaces/workspace-1:revoke") {
-        return new Response(JSON.stringify({
-        code: 0,
-        message: "ok",
-        data: {
-          workspace_id: "workspace-1",
-          status: "revoked",
-          affected_task_count: 2,
-        },
-        }), { status: 200, headers: { "Content-Type": "application/json" } });
-      }
-      throw new Error(`unexpected request: ${url}`);
-    });
+      },
+    } as never);
 
     renderComposer(true, "继续整理", "task-existing");
 
-    const workspaceButton = await screen.findByRole("button", { name: "Documents" });
-    expect(workspaceButton).toHaveAttribute("aria-readonly", "true");
-    fireEvent.click(workspaceButton);
-    fireEvent.click(await screen.findByRole("button", { name: "撤销授权" }));
+    const permission = await screen.findByRole("button", { name: "按需确认" });
+    expect(permission).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Documents" })).not.toBeInTheDocument();
+    fireEvent.click(permission);
+    expect(screen.getByRole("menu", { name: "权限模式" })).toBeInTheDocument();
 
-    expect(await screen.findByRole("dialog", { name: "撤销工作区授权？" })).toBeInTheDocument();
-    expect(screen.getByText("/Users/alice/Documents")).toBeInTheDocument();
-    expect(screen.getByText(/2/)).toBeInTheDocument();
-    const confirmations = screen.getAllByRole("button", { name: "撤销授权" });
-    fireEvent.click(confirmations[confirmations.length - 1]);
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(fetchMock.mock.calls[1][0]).toBe("/api/core/local-workspaces/workspace-1:revoke");
-    expect(String(fetchMock.mock.calls[1][1]?.body ?? "")).not.toContain("/Users/alice/Documents");
+    expect(get).toHaveBeenCalledWith(
+      "/api/core/conversations/task-existing:workspace",
+      { silentError: true },
+    );
   });
 
   it("does not let an existing Work task without a workspace bind one later", async () => {
-    let resolveWorkspaceLookup!: (response: Response) => void;
-    const workspaceLookup = new Promise<Response>((resolve) => {
+    let resolveWorkspaceLookup!: (response: unknown) => void;
+    const workspaceLookup = new Promise<unknown>((resolve) => {
       resolveWorkspaceLookup = resolve;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(workspaceLookup);
+    vi.spyOn(axiosInstance, "get").mockReturnValue(workspaceLookup as never);
 
     renderComposer(true, "继续任务", "task-without-workspace");
 
     await act(async () => {
-      resolveWorkspaceLookup(new Response(JSON.stringify({
-        code: 0,
-        message: "ok",
-        data: { status: "none" },
-      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      resolveWorkspaceLookup({ data: { code: 0, message: "ok", data: { status: "none" } } });
       await workspaceLookup;
     });
 
@@ -536,10 +513,8 @@ describe("Local/Desktop task workspace composer contract", () => {
   });
 
   it("keeps permission selection enabled for an existing task while a response is streaming", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      code: 0,
-      message: "ok",
-      data: {
+    vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: { code: 0, message: "ok", data: {
         status: "active",
         permission_mode: "ask_as_needed",
         permission_version: 3,
@@ -549,8 +524,8 @@ describe("Local/Desktop task workspace composer contract", () => {
           path: "/Users/alice/Active Project",
           status: "active",
         },
-      },
-    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      } },
+    } as never);
 
     render(
       <ChatInput
@@ -575,10 +550,8 @@ describe("Local/Desktop task workspace composer contract", () => {
   });
 
   it("keeps permission selection enabled while an existing background task is waiting", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      code: 0,
-      message: "ok",
-      data: {
+    vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: { code: 0, message: "ok", data: {
         status: "active",
         permission_mode: "ask_as_needed",
         permission_version: 3,
@@ -588,8 +561,8 @@ describe("Local/Desktop task workspace composer contract", () => {
           path: "/Users/alice/Active Project",
           status: "active",
         },
-      },
-    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      } },
+    } as never);
 
     render(
       <ChatInput
@@ -612,20 +585,58 @@ describe("Local/Desktop task workspace composer contract", () => {
     await waitFor(() => expect(permission).toBeEnabled());
   });
 
+  it("loads an existing task workspace through the authenticated request client", async () => {
+    const get = vi.spyOn(axiosInstance, "get").mockResolvedValue({
+      data: {
+        data: {
+          status: "active",
+          permission_mode: "always_ask",
+          permission_version: 2,
+          workspace: {
+            workspace_id: "workspace-authenticated",
+            display_name: "Authenticated Project",
+            path: "/Users/alice/Authenticated Project",
+            status: "active",
+          },
+        },
+      },
+    } as never);
+    const rawFetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("missing auth"));
+    const put = vi.spyOn(axiosInstance, "put").mockResolvedValue({
+      data: { data: { permission_version: 3 } },
+    } as never);
+
+    renderComposer(true, "继续任务", "task-authenticated");
+
+    expect(await screen.findByRole("button", { name: "始终询问" })).toBeEnabled();
+    expect(get).toHaveBeenCalledWith(
+      "/api/core/conversations/task-authenticated:workspace",
+      { silentError: true },
+    );
+    expect(rawFetch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "始终询问" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "按需确认" }));
+    await waitFor(() => expect(put).toHaveBeenCalledWith(
+      "/api/core/conversations/task-authenticated:workspace-permission",
+      { permission_mode: "ask_as_needed", version: 2 },
+      { silentError: true },
+    ));
+    await waitFor(() => expect(screen.queryByRole("menu", { name: "权限模式" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "按需确认" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Authenticated Project" })).not.toBeInTheDocument();
+  });
+
   it("hides the unbound workspace trigger when binding metadata has no display name", async () => {
-    let resolveWorkspaceLookup!: (response: Response) => void;
-    const workspaceLookup = new Promise<Response>((resolve) => {
+    let resolveWorkspaceLookup!: (response: unknown) => void;
+    const workspaceLookup = new Promise<unknown>((resolve) => {
       resolveWorkspaceLookup = resolve;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(workspaceLookup);
+    vi.spyOn(axiosInstance, "get").mockReturnValue(workspaceLookup as never);
 
     renderComposer(true, "继续任务", "task-with-incomplete-workspace");
 
     await act(async () => {
-      resolveWorkspaceLookup(new Response(JSON.stringify({
-        code: 0,
-        message: "ok",
-        data: {
+      resolveWorkspaceLookup({ data: { code: 0, message: "ok", data: {
           status: "active",
           workspace_id: "workspace-incomplete",
           workspace: {
@@ -634,8 +645,7 @@ describe("Local/Desktop task workspace composer contract", () => {
             path: "",
             status: "active",
           },
-        },
-      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        } } });
       await workspaceLookup;
     });
 
