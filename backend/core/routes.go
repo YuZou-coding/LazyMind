@@ -23,6 +23,7 @@ import (
 	"lazymind/core/knowledge_market"
 	"lazymind/core/mcp"
 	"lazymind/core/modelprovider"
+	"lazymind/core/notifications"
 	"lazymind/core/remotefs"
 	"lazymind/core/resourceupdate"
 	"lazymind/core/scheduler"
@@ -378,6 +379,16 @@ func registerAllRoutes(r *mux.Router) {
 	handleAPI(r, "GET", "/task-center/schedules/{schedule_id}/tasks", []string{"qa.read"}, taskcenter.ListScheduleTasks)
 
 	// ----- Schedules -----
+	handleAPI(r, "GET", "/user/notification-settings", []string{"qa.read"}, notifications.SettingsHandler)
+	handleAPI(r, "PUT", "/user/notification-settings", []string{"qa.write"}, notifications.SettingsHandler)
+	handleAPI(r, "GET", "/user/notification-settings/disable-impact", []string{"qa.read"}, notifications.DisableImpactHandler)
+	handleAPI(r, "GET", "/schedules/{schedule_id}/notification-rule", []string{"qa.read"}, notifications.ScheduleRuleHandler)
+	handleAPI(r, "PUT", "/schedules/{schedule_id}/notification-rule", []string{"qa.write"}, notifications.ScheduleRuleHandler)
+	handleAPI(r, "POST", "/schedules/{schedule_id}/notification-rule:reset", []string{"qa.write"}, notifications.ResetRuleHandler)
+	handleAPI(r, "GET", "/task-center/tasks/{task_id}/notifications", []string{"qa.read"}, notifications.HistoryHandler)
+	handleAPI(r, "POST", "/task-center/notifications/{notification_id}:retry", []string{"qa.write"}, notifications.RetryHandler)
+	r.HandleFunc("/internal/task-notifications/{notification_id}:authorize", notifications.AuthorizeHandler).Methods("POST")
+	r.HandleFunc("/internal/channel-accounts/{account_id}/notification-references", notifications.AccountReferencesHandler).Methods("GET")
 	handleAPI(r, "GET", "/schedules", []string{"qa.read"}, scheduler.ListSchedulesHandler)
 	handleAPI(r, "POST", "/schedules", []string{"qa.write"}, scheduler.CreateScheduleHandler)
 	handleAPI(r, "PUT", "/schedules/{schedule_id}", []string{"qa.write"}, scheduler.UpdateScheduleHandler)

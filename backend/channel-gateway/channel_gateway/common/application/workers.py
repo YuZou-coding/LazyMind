@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 import uuid
+import datetime as dt
 from dataclasses import replace
 from typing import Callable
 
@@ -20,6 +22,7 @@ from channel_gateway.common.domain.chat import (
     inbox_provider_context,
 )
 from channel_gateway.common.errors import (
+    GatewayError,
     LazyMindHTTPError,
     RetryableLazyMindError,
     RetryableProviderSideEffectError,
@@ -309,10 +312,12 @@ class DeliveryWorker:
         *,
         store: OutboxWorkRepository,
         providers: DeliveryProviderRegistry,
+        notifications=None,
         worker_count: int = 2,
     ):
         self._store = store
         self._providers = providers
+        self._notifications = notifications
         self._worker_count = max(1, worker_count)
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
@@ -375,6 +380,9 @@ class DeliveryWorker:
                                 'Cannot persist rendered channel parts'
                             )
                         outbound = replace(outbound, rendered_parts=parts)
+                    if outbound.purpose == 'task_notification':
+                        self._deliver_notification(outbound, provider, claim_owner, lease)
+                        continue
                     self._deliver(
                         outbound,
                         provider,
@@ -411,6 +419,128 @@ class DeliveryWorker:
                 else:
                     _logger.exception('channel_delivery_worker_failed')
                 self._stop.wait(1.0)
+
+    def _deliver_notification(self, outbound, provider, claim_owner, lease):
+        payload = outbound.metadata['task_notification']
+        states = outbound.provider_state
+
+        def save(index, state):
+            lease.ensure_owned()
+            if not self._store.save_outbound_part_state(outbound.outbox_id, claim_owner, index, state):
+                raise LeaseLostError('Notification writer was fenced')
+            states[str(index)] = dict(state)
+
+        def finish(status, delay=None, consume_attempt=True):
+            lease.ensure_owned()
+            if not self._store.finish_notification(outbound.outbox_id, claim_owner, status=status,
+                                                   delay=delay, consume_attempt=consume_attempt):
+                raise LeaseLostError('Notification completion was fenced')
+
+        for index, part in enumerate(outbound.rendered_parts):
+            state = dict(states.get(str(index)) or {})
+            if state.get('status') in {'sent', 'skipped'} or state.get('permanent_failure'):
+                continue
+            if state.get('status') == 'failed' and state.get('retryable') is False:
+                # A later part can defer the queue. Keep definite rejections
+                # failed until manual retry explicitly resets them to pending.
+                continue
+            try:
+                lease.ensure_owned()
+                delay = self._store.reserve_notification_send(
+                    outbound.provider, outbound.account_id, outbound.recipient_id)
+                if delay > 1:
+                    finish('retry_wait', delay=delay, consume_attempt=False)
+                    return
+                if delay:
+                    time.sleep(delay)
+                lease.ensure_owned()
+                if self._notifications is None:
+                    raise GatewayError(503, 'NOTIFICATION_CORE_UNAVAILABLE', '通知授权服务不可用', True)
+                if not self._notifications.authorize(payload):
+                    for pending_index in range(index, len(outbound.rendered_parts)):
+                        pending = dict(states.get(str(pending_index)) or {})
+                        if pending.get('status') != 'sent':
+                            save(pending_index, {**pending, 'status': 'skipped',
+                                                 'error_code': 'NOTIFICATION_DISABLED'})
+                    finish('dead')
+                    return
+            except GatewayError as exc:
+                if exc.retryable:
+                    finish('retry_wait', delay=2, consume_attempt=False)
+                    return
+                save(index, {**state, 'status': 'failed', 'error_code': exc.code})
+                continue
+            now = dt.datetime.now(dt.timezone.utc)
+            first_request = state.get('first_request_at')
+            if first_request:
+                started = dt.datetime.fromisoformat(first_request.replace('Z', '+00:00'))
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=dt.timezone.utc)
+                if (now - started).total_seconds() >= 3600:
+                    save(index, {**state, 'status': 'unknown', 'error_code': 'NOTIFICATION_RESULT_UNKNOWN'})
+                    finish('dead')
+                    return
+            state.update(status='sending', first_request_at=first_request or now.isoformat(),
+                         attempt_count=int(state.get('attempt_count', 0)) + 1)
+            save(index, state)
+            delivery_id = str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                         f'lazymind:{outbound.outbox_id}:part:{index}:'
+                                         f'{state.get("delivery_generation", 0)}'))
+            try:
+                lease.ensure_owned()
+                delivered = provider.send_part(outbound, part, part_index=index,
+                                               idempotency_key=delivery_id, saved_state=state) or state
+                delivered = {**state, **delivered, 'status': 'sent', 'sent_at': now.isoformat()}
+                if part.get('permanent_failure'):
+                    delivered.update(status='failed', permanent_failure=True, error_code=part['error_code'])
+                save(index, delivered)
+            except LeaseLostError:
+                raise
+            except GatewayError as exc:
+                if first_request and exc.code == 'FEISHU_SEND_REJECTED':
+                    # Rejecting this retry cannot disprove an earlier send
+                    # whose response was lost. Preserve its duplicate risk.
+                    save(index, {**state, 'status': 'unknown', 'error_code': 'NOTIFICATION_RESULT_UNKNOWN'})
+                    finish('dead')
+                    return
+                state.update(status='failed', error_code=exc.code, retryable=exc.retryable)
+                # A definite rejection is safe to retry after reauthorization;
+                # it does not consume the platform's ambiguity window.
+                state.pop('first_request_at', None)
+                if exc.code == 'NOTIFICATION_ARTIFACT_UNAVAILABLE':
+                    state['permanent_failure'] = True
+                if part.get('failure_notice') and (
+                    state.get('permanent_failure') or exc.code == 'FEISHU_SEND_REJECTED'
+                ):
+                    lease.ensure_owned()
+                    parts = self._store.fail_notification_artifact(
+                        outbound.outbox_id, claim_owner, index, state, part['failure_notice'])
+                    if parts is None:
+                        raise LeaseLostError('Notification artifact writer was fenced')
+                    states[str(index)] = dict(state)
+                    outbound.rendered_parts[:] = parts
+                else:
+                    save(index, state)
+                if not exc.retryable:
+                    continue
+                finish('dead' if outbound.attempt_count >= 5 else 'retry_wait',
+                       delay=None if outbound.attempt_count >= 5 else min(300, 2 ** outbound.attempt_count))
+                return
+            except Exception as exc:
+                retry_after = getattr(exc, 'retry_after_seconds', None)
+                state.update(status='failed' if outbound.attempt_count >= 5 else 'pending',
+                             error_code='NOTIFICATION_SEND_UNCONFIRMED')
+                # Explicit rate rejection is not an ambiguous accepted send.
+                if retry_after is not None:
+                    state.pop('first_request_at', None)
+                    self._store.defer_notification_provider(
+                        outbound.provider, outbound.account_id, outbound.recipient_id, float(retry_after))
+                save(index, state)
+                delay = max(float(retry_after or 0), min(300, 2 ** outbound.attempt_count))
+                finish('dead' if outbound.attempt_count >= 5 else 'retry_wait',
+                       delay=None if outbound.attempt_count >= 5 else delay)
+                return
+        finish('sent')
 
     def _deliver(
         self,

@@ -1,0 +1,2186 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "LazyMind Channel Gateway",
+    "description": "Unified external chat channel gateway.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/channel-gateway/v1/notification-capabilities": {
+      "get": {
+        "summary": "Notification Capabilities",
+        "operationId": "notification_capabilities_api_channel_gateway_v1_notification_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCapabilitiesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/channel-gateway/v1/channel-accounts/{account_id}/notification-recipients": {
+      "get": {
+        "summary": "Notification Recipients",
+        "operationId": "notification_recipients_api_channel_gateway_v1_channel_accounts__account_id__notification_recipients_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "page_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 2048,
+              "default": "",
+              "title": "Page Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRecipientsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/channel-gateway/v1/channel-accounts/{account_id}/notification-references": {
+      "get": {
+        "summary": "Notification References",
+        "operationId": "notification_references_api_channel_gateway_v1_channel_accounts__account_id__notification_references_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationReferencesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/channel-gateway/v1/channel-accounts/{account_id}/disconnect-impact": {
+      "get": {
+        "summary": "Notification Disconnect Impact",
+        "operationId": "notification_disconnect_impact_api_channel_gateway_v1_channel_accounts__account_id__disconnect_impact_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationReferencesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/channel-gateway/v1/channel-accounts/{account_id}:reconnect": {
+      "post": {
+        "summary": "Notification Reconnect",
+        "operationId": "notification_reconnect_api_channel_gateway_v1_channel_accounts__account_id__reconnect_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionSessionView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/notification-targets:validate": {
+      "post": {
+        "summary": "Notification Validate",
+        "operationId": "notification_validate_internal_notification_targets_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationTargetValidation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationValidationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/task-notifications": {
+      "post": {
+        "summary": "Notification Submit",
+        "operationId": "notification_submit_internal_task_notifications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationEnvelope"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRecordView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/task-notifications/{notification_id}": {
+      "get": {
+        "summary": "Notification History",
+        "operationId": "notification_history_internal_task_notifications__notification_id__get",
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRecordView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/task-notifications/{notification_id}:retry": {
+      "post": {
+        "summary": "Notification Retry",
+        "operationId": "notification_retry_internal_task_notifications__notification_id__retry_post",
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRetry"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRecordView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe notification business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationErrorView"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccountListView": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AccountView"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AccountListView"
+      },
+      "AccountView": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "notification_reference_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Reference Count"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "provisioning",
+              "connected",
+              "disconnected"
+            ],
+            "title": "Status"
+          },
+          "runtime_status": {
+            "type": "string",
+            "enum": [
+              "stopped",
+              "starting",
+              "running",
+              "degraded",
+              "failed"
+            ],
+            "title": "Runtime Status"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected At"
+          },
+          "last_poll_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Poll At"
+          },
+          "last_message_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "status",
+          "runtime_status",
+          "connected_at",
+          "last_poll_at",
+          "last_message_at",
+          "last_error",
+          "updated_at"
+        ],
+        "title": "AccountView"
+      },
+      "ChallengeView": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "input_mode": {
+            "type": "string",
+            "title": "Input Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "prompt",
+          "input_mode"
+        ],
+        "title": "ChallengeView"
+      },
+      "ConnectionChallengeSubmit": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Type",
+            "default": "numeric_code"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "ConnectionChallengeSubmit"
+      },
+      "ConnectionSessionCreate": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Provider"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "ConnectionSessionCreate"
+      },
+      "ConnectionSessionView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "mode": {
+            "type": "string",
+            "const": "qr_code",
+            "title": "Mode"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "preparing",
+              "waiting_scan",
+              "scanned",
+              "verification_required",
+              "confirming",
+              "connected",
+              "expired",
+              "canceled",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "qr": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QRCodeView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "challenge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChallengeView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "poll_after_ms": {
+            "type": "integer",
+            "title": "Poll After Ms"
+          },
+          "allowed_actions": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "cancel",
+                "submit_challenge",
+                "refresh"
+              ]
+            },
+            "type": "array",
+            "title": "Allowed Actions"
+          },
+          "account": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionErrorView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "mode",
+          "status",
+          "revision",
+          "message",
+          "qr",
+          "challenge",
+          "poll_after_ms",
+          "allowed_actions",
+          "account",
+          "error"
+        ],
+        "title": "ConnectionSessionView"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "NotificationArtifact": {
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Artifact Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "file"
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "mime_type": {
+            "type": "string",
+            "maxLength": 128,
+            "title": "Mime Type",
+            "default": ""
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Size Bytes"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 4096,
+            "title": "Source",
+            "default": ""
+          },
+          "inline_text": {
+            "type": "string",
+            "maxLength": 8388608,
+            "title": "Inline Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "kind",
+          "name",
+          "size_bytes",
+          "revision"
+        ],
+        "title": "NotificationArtifact"
+      },
+      "NotificationAttemptView": {
+        "properties": {
+          "retry_of": {
+            "type": "integer",
+            "title": "Retry Of"
+          },
+          "requested_at": {
+            "type": "string",
+            "title": "Requested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "retry_of",
+          "requested_at"
+        ],
+        "title": "NotificationAttemptView"
+      },
+      "NotificationCapabilitiesView": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationCapabilityView"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "NotificationCapabilitiesView"
+      },
+      "NotificationCapabilityView": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "task_notifications": {
+            "type": "boolean",
+            "title": "Task Notifications"
+          },
+          "proactive_send": {
+            "type": "boolean",
+            "title": "Proactive Send"
+          },
+          "formats": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "card",
+                "image",
+                "file"
+              ]
+            },
+            "type": "array",
+            "title": "Formats"
+          },
+          "recipient_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "group",
+                "verified_person"
+              ]
+            },
+            "type": "array",
+            "title": "Recipient Types"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/NotificationLimitsView"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "task_notifications",
+          "proactive_send",
+          "formats",
+          "recipient_types",
+          "limits"
+        ],
+        "title": "NotificationCapabilityView"
+      },
+      "NotificationContent": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 512,
+            "title": "Title"
+          },
+          "executed_at": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Executed At"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 8388608,
+            "title": "Body",
+            "default": ""
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 131072,
+            "title": "Summary",
+            "default": ""
+          },
+          "summary_status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "pending",
+              "failed"
+            ],
+            "title": "Summary Status"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 4096,
+            "title": "Reason",
+            "default": ""
+          },
+          "pending_actions": {
+            "items": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Pending Actions",
+            "default": []
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationArtifact"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Artifacts",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "executed_at",
+          "summary_status"
+        ],
+        "title": "NotificationContent"
+      },
+      "NotificationEnvelope": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version"
+          },
+          "notification_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Notification Id"
+          },
+          "user_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "User Id"
+          },
+          "task_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Task Id"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "failed",
+              "paused"
+            ],
+            "title": "Event"
+          },
+          "event_instance_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Event Instance Id"
+          },
+          "rule_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rule Version"
+          },
+          "settings_generation": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Settings Generation"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "account_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Account Id"
+          },
+          "recipient_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Recipient Id"
+          },
+          "content_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "full"
+            ],
+            "title": "Content Mode"
+          },
+          "content": {
+            "$ref": "#/components/schemas/NotificationContent"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "notification_id",
+          "user_id",
+          "task_id",
+          "event",
+          "event_instance_id",
+          "rule_version",
+          "settings_generation",
+          "provider",
+          "account_id",
+          "recipient_id",
+          "content_mode",
+          "content"
+        ],
+        "title": "NotificationEnvelope"
+      },
+      "NotificationErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "retryable": {
+            "type": "boolean",
+            "title": "Retryable"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "retryable",
+          "request_id"
+        ],
+        "title": "NotificationErrorDetail"
+      },
+      "NotificationErrorView": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/NotificationErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "NotificationErrorView"
+      },
+      "NotificationLimitsView": {
+        "properties": {
+          "card_bytes": {
+            "type": "integer",
+            "title": "Card Bytes"
+          },
+          "image_bytes": {
+            "type": "integer",
+            "title": "Image Bytes"
+          },
+          "file_bytes": {
+            "type": "integer",
+            "title": "File Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "card_bytes",
+          "image_bytes",
+          "file_bytes"
+        ],
+        "title": "NotificationLimitsView"
+      },
+      "NotificationPartView": {
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "title": "Part Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "card",
+              "image",
+              "file"
+            ],
+            "title": "Kind"
+          },
+          "artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sending",
+              "sent",
+              "failed",
+              "unknown",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part_id",
+          "kind",
+          "status"
+        ],
+        "title": "NotificationPartView"
+      },
+      "NotificationRecipientView": {
+        "properties": {
+          "recipient_id": {
+            "type": "string",
+            "title": "Recipient Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group",
+              "verified_person"
+            ],
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipient_id",
+          "name",
+          "type"
+        ],
+        "title": "NotificationRecipientView"
+      },
+      "NotificationRecipientsView": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationRecipientView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_page_token": {
+            "type": "string",
+            "title": "Next Page Token"
+          },
+          "verified_person": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationRecipientView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_page_token"
+        ],
+        "title": "NotificationRecipientsView"
+      },
+      "NotificationRecordView": {
+        "properties": {
+          "notification_id": {
+            "type": "string",
+            "title": "Notification Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sent",
+              "partial",
+              "failed",
+              "unknown",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "recipient_id": {
+            "type": "string",
+            "title": "Recipient Id"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationPartView"
+            },
+            "type": "array",
+            "title": "Parts"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationAttemptView"
+            },
+            "type": "array",
+            "title": "Attempts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notification_id",
+          "status",
+          "account_id",
+          "recipient_id",
+          "revision",
+          "parts",
+          "attempts"
+        ],
+        "title": "NotificationRecordView"
+      },
+      "NotificationReferenceView": {
+        "properties": {
+          "schedule_id": {
+            "type": "string",
+            "title": "Schedule Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schedule_id",
+          "name"
+        ],
+        "title": "NotificationReferenceView"
+      },
+      "NotificationReferencesView": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationReferenceView"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "NotificationReferencesView"
+      },
+      "NotificationRetry": {
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Revision"
+          },
+          "confirm_duplicate_risk": {
+            "type": "boolean",
+            "title": "Confirm Duplicate Risk",
+            "default": false
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 131072,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_revision"
+        ],
+        "title": "NotificationRetry"
+      },
+      "NotificationTarget": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Account Id"
+          },
+          "recipient_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Recipient Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "account_id",
+          "recipient_id"
+        ],
+        "title": "NotificationTarget"
+      },
+      "NotificationTargetValidation": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "User Id"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationTarget"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Targets"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id",
+          "provider",
+          "targets"
+        ],
+        "title": "NotificationTargetValidation"
+      },
+      "NotificationValidatedTarget": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Account Id"
+          },
+          "recipient_id": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Recipient Id"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "account_id",
+          "recipient_id",
+          "valid"
+        ],
+        "title": "NotificationValidatedTarget"
+      },
+      "NotificationValidationView": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationValidatedTarget"
+            },
+            "type": "array",
+            "title": "Targets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid",
+          "provider",
+          "targets"
+        ],
+        "title": "NotificationValidationView"
+      },
+      "QRCodeView": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload",
+          "version",
+          "expires_at"
+        ],
+        "title": "QRCodeView"
+      },
+      "SessionErrorView": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "retryable": {
+            "type": "boolean",
+            "title": "Retryable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "title": "SessionErrorView"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

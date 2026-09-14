@@ -21,6 +21,7 @@ import (
 
 	"lazymind/core/common"
 	"lazymind/core/common/orm"
+	"lazymind/core/notifications"
 	"lazymind/core/settings"
 	"lazymind/core/store"
 	"lazymind/core/taskcenter"
@@ -51,7 +52,12 @@ func CreateSchedule(ctx context.Context, db *gorm.DB, s *orm.UserSchedule) error
 		}
 		s.NextRunAt = next.UTC()
 	}
-	return db.WithContext(ctx).Create(s).Error
+	return notifications.Transact(ctx, db, func(tx *gorm.DB) error {
+		if err := tx.Create(s).Error; err != nil {
+			return err
+		}
+		return notifications.CreateScheduleRule(tx, s, nil)
+	})
 }
 
 // ListSchedules returns schedules for a user. When includeDisabled is true, both
@@ -287,6 +293,9 @@ func RunScheduler(ctx context.Context, db *gorm.DB, chatBaseURL string) <-chan s
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				if err := taskcenter.ReconcileCompletedScheduledWorkflows(ctx, db); err != nil {
+					fmt.Println("[scheduler] completed workflow reconciliation deferred")
+				}
 				fireSchedules(ctx, db, chatBaseURL)
 				resumeWaitingTasks(ctx, db)
 			}
@@ -663,15 +672,16 @@ func ListSchedulesHandler(w http.ResponseWriter, r *http.Request) {
 func CreateScheduleHandler(w http.ResponseWriter, r *http.Request) {
 	userID := store.UserID(r)
 	var body struct {
-		Name           string            `json:"name"`
-		Remark         string            `json:"remark"`
-		CronExpr       string            `json:"cron_expr"`
-		Timezone       string            `json:"timezone"`
-		PromptTemplate string            `json:"prompt_template"`
-		KbIDs          []string          `json:"kb_ids"`
-		FileIDs        []string          `json:"file_ids"`
-		GroupID        *string           `json:"group_id"`
-		Dependencies   []dependencyInput `json:"dependencies"`
+		NotificationRule *notifications.Rule `json:"notification_rule"`
+		Name             string              `json:"name"`
+		Remark           string              `json:"remark"`
+		CronExpr         string              `json:"cron_expr"`
+		Timezone         string              `json:"timezone"`
+		PromptTemplate   string              `json:"prompt_template"`
+		KbIDs            []string            `json:"kb_ids"`
+		FileIDs          []string            `json:"file_ids"`
+		GroupID          *string             `json:"group_id"`
+		Dependencies     []dependencyInput   `json:"dependencies"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		common.ReplyErr(w, "invalid body: "+err.Error(), http.StatusBadRequest)
@@ -684,6 +694,12 @@ func CreateScheduleHandler(w http.ResponseWriter, r *http.Request) {
 	if err := validateScheduleDescription(r.Context(), body.PromptTemplate); err != nil {
 		common.ReplyErr(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if body.NotificationRule != nil {
+		if err := notifications.ValidateRule(r.Context(), userID, *body.NotificationRule, false); err != nil {
+			notifications.ReplyError(w, r, err)
+			return
+		}
 	}
 	tz := body.Timezone
 	if tz == "" {
@@ -717,6 +733,11 @@ func CreateScheduleHandler(w http.ResponseWriter, r *http.Request) {
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := CreateSchedule(r.Context(), tx, s); err != nil {
 			return err
+		}
+		if body.NotificationRule != nil {
+			if err := notifications.ReplaceInitialRule(tx, s.ID, *body.NotificationRule); err != nil {
+				return err
+			}
 		}
 		return replaceDependencies(tx, userID, s.ID, body.Dependencies)
 	}); err != nil {

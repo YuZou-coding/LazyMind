@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import hashlib
 import threading
 import uuid
 from dataclasses import dataclass
@@ -234,6 +235,18 @@ class FeishuConnectionService:
         )
         if created:
             self._start_worker(session_id, row['qr_version'])
+        return self._session_view(row)
+
+    def create_reconnect(self, owner_user_id, account_id):
+        account = self._store.get_account(owner_user_id, account_id)
+        if not account or account['provider'] != 'feishu':
+            raise GatewayError(404, 'ACCOUNT_NOT_FOUND', '账号不存在')
+        session_id = f'cs_{uuid.uuid4().hex}'
+        row, _ = self._store.reserve_session(session_id=session_id, owner_user_id=owner_user_id,
+                                             provider='feishu', idempotency_key=None,
+                                             expires_at=_utc_now() + _SESSION_TTL)
+        self._store.reserve_notification_reconnect(session_id, account_id)
+        self._start_worker(session_id, row['qr_version'])
         return self._session_view(row)
 
     def get_session(
@@ -524,7 +537,9 @@ class FeishuConnectionService:
         *,
         runtime_lease: RuntimeLease | None,
     ) -> None:
-        if _tls_certificate_error(error):
+        if isinstance(error, GatewayError) and error.code == 'ACCOUNT_IDENTITY_MISMATCH':
+            code, message, retryable = error.code, error.message, False
+        elif _tls_certificate_error(error):
             code = 'TLS_CERTIFICATE_VERIFY_FAILED'
             message = (
                 '无法验证飞书服务的 HTTPS 证书，'
@@ -542,11 +557,14 @@ class FeishuConnectionService:
             message=message,
             retryable=retryable,
         )
-        self._cleanup_interrupted_session(
-            session_id,
-            qr_version,
-            runtime_lease=runtime_lease,
-        )
+        try:
+            self._cleanup_interrupted_session(
+                session_id,
+                qr_version,
+                runtime_lease=runtime_lease,
+            )
+        except RuntimeLeaseLostError:
+            return
 
     def _on_qr_code(
         self,
@@ -605,6 +623,10 @@ class FeishuConnectionService:
         runtime_fence,
     ) -> None:
         owner_user_id = str(row['owner_user_id'])
+        original = self._store.notification_reconnect_account(str(row['id']))
+        identity = hashlib.sha256(f'{registration.app_id}:{registration.owner_open_id}'.encode()).hexdigest()
+        if original and (original['owner_user_id'] != owner_user_id or original['external_id_hash'] != identity):
+            raise GatewayError(409, 'ACCOUNT_IDENTITY_MISMATCH', '重连身份与原账号不同，请使用原账号授权')
         cleanup_started = self._store.begin_provisioning_cleanup(
             str(row['id']),
             int(row['qr_version']),
@@ -620,6 +642,7 @@ class FeishuConnectionService:
             provider_account_id=registration.owner_open_id,
             provider_tenant_key=registration.tenant_key,
             display_name=registration.owner_name,
+            avatar_url=registration.avatar_url,
         )
         account = self._accounts.connect_registered_account(
             owner_user_id=owner_user_id,

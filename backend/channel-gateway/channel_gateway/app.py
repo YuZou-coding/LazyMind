@@ -13,6 +13,11 @@ from channel_gateway.common.application.providers import (
     AccountApplicationService,
     ConnectionApplicationService,
 )
+from channel_gateway.common.application.notifications import (
+    NotificationEnvelope, NotificationRetry, NotificationTargetValidation,
+    NotificationCapabilitiesView, NotificationRecipientsView, NotificationReferencesView,
+    NotificationRecordView, NotificationValidationView, NOTIFICATION_ERROR_RESPONSES,
+)
 from channel_gateway.common.errors import GatewayError
 
 
@@ -43,6 +48,8 @@ class ChallengeView(BaseModel):
 
 
 class AccountView(BaseModel):
+    avatar_url: str | None = None
+    notification_reference_count: int | None = None
     id: str
     provider: str
     label: str
@@ -195,6 +202,13 @@ def handle_request_validation_error(request: Request, exc: RequestValidationErro
     )
 
 
+@app.exception_handler(Exception)
+def handle_unexpected_error(request: Request, exc: Exception):
+    # Never serialize provider responses, storage exceptions or credentials.
+    _logger.error('channel_request_failed error_type=%s', type(exc).__name__)
+    return handle_gateway_error(request, GatewayError(500, 'INTERNAL_ERROR', '服务暂时不可用，请稍后重试', True))
+
+
 @app.get('/healthz')
 def healthz():
     return {'status': 'ok'}
@@ -212,11 +226,23 @@ def readyz(request: Request):
 )
 @permission_required('qa.read')
 def list_channel_accounts(
+    request: Request,
     provider: Annotated[str, Query(min_length=1, max_length=32)],
     owner_user_id: Annotated[str, Depends(current_owner)],
     gateway: Annotated[AccountApplicationService, Depends(account_service)],
 ):
-    return gateway.list_accounts(owner_user_id, provider)
+    result = gateway.list_accounts(owner_user_id, provider)
+    for account in result['items']:
+        try:
+            refs = components(request).notifications.references(owner_user_id, account['id'])
+            account['notification_reference_count'] = len(refs.get('items', []))
+        except GatewayError as exc:
+            if not exc.retryable:
+                raise
+            # Account management remains available while Core is unavailable.
+            # Unknown is distinct from an authoritative zero references.
+            account['notification_reference_count'] = None
+    return result
 
 
 @app.delete(
@@ -324,3 +350,86 @@ def cancel_connection_session(
 ):
     gateway.cancel_session(owner_user_id, session_id)
     return Response(status_code=204)
+
+
+# Public routes keep the same centralized permission markers as account APIs.
+def notification_service(request: Request):
+    return components(request).notifications
+
+
+def internal_notifications(request: Request):
+    service = notification_service(request)
+    service.authenticate(request.headers.get('X-LazyMind-Internal-Token'))
+    return service
+
+
+@app.get('/api/channel-gateway/v1/notification-capabilities',
+         response_model=NotificationCapabilitiesView, responses=NOTIFICATION_ERROR_RESPONSES)
+@permission_required('qa.read')
+def notification_capabilities(request: Request, owner: Annotated[str, Depends(current_owner)]):
+    return notification_service(request).capabilities()
+
+
+@app.get('/api/channel-gateway/v1/channel-accounts/{account_id}/notification-recipients',
+         response_model=NotificationRecipientsView, responses=NOTIFICATION_ERROR_RESPONSES)
+@permission_required('qa.read')
+def notification_recipients(request: Request, account_id: str,
+                            owner: Annotated[str, Depends(current_owner)],
+                            page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+                            page_token: Annotated[str, Query(max_length=2048)] = ''):
+    return notification_service(request).recipients(owner, account_id, page_size, page_token)
+
+
+@app.get('/api/channel-gateway/v1/channel-accounts/{account_id}/notification-references',
+         response_model=NotificationReferencesView, responses=NOTIFICATION_ERROR_RESPONSES)
+@permission_required('qa.read')
+def notification_references(request: Request, account_id: str,
+                            owner: Annotated[str, Depends(current_owner)]):
+    return notification_service(request).references(owner, account_id)
+
+
+@app.get('/api/channel-gateway/v1/channel-accounts/{account_id}/disconnect-impact',
+         response_model=NotificationReferencesView, responses=NOTIFICATION_ERROR_RESPONSES)
+@permission_required('qa.read')
+def notification_disconnect_impact(request: Request, account_id: str,
+                                   owner: Annotated[str, Depends(current_owner)]):
+    return notification_service(request).references(owner, account_id)
+
+
+@app.post('/api/channel-gateway/v1/channel-accounts/{account_id}:reconnect', status_code=202,
+          response_model=ConnectionSessionView, responses=NOTIFICATION_ERROR_RESPONSES)
+@permission_required('qa.write')
+def notification_reconnect(request: Request, account_id: str,
+                           owner: Annotated[str, Depends(current_owner)]):
+    account = notification_service(request).account(owner, account_id)
+    if account['provider'] != 'feishu':
+        raise GatewayError(400, 'NOTIFICATION_PROVIDER_UNSUPPORTED', '该渠道暂不支持此重连方式')
+    return components(request).connections._providers.connection('feishu').create_reconnect(owner, account_id)
+
+
+@app.post('/internal/notification-targets:validate',
+          response_model=NotificationValidationView, responses=NOTIFICATION_ERROR_RESPONSES)
+def notification_validate(payload: NotificationTargetValidation,
+                          service=Depends(internal_notifications)):
+    targets = [service.validate_target(payload.user_id, payload.provider,
+                                       target.account_id, target.recipient_id) for target in payload.targets]
+    return {'valid': True, 'provider': payload.provider, 'targets': targets}
+
+
+@app.post('/internal/task-notifications', status_code=202,
+          response_model=NotificationRecordView, responses=NOTIFICATION_ERROR_RESPONSES)
+def notification_submit(payload: NotificationEnvelope, service=Depends(internal_notifications)):
+    return service.submit(payload)
+
+
+@app.get('/internal/task-notifications/{notification_id}',
+         response_model=NotificationRecordView, responses=NOTIFICATION_ERROR_RESPONSES)
+def notification_history(notification_id: str, service=Depends(internal_notifications)):
+    return service.store.notification_record(notification_id)
+
+
+@app.post('/internal/task-notifications/{notification_id}:retry', status_code=202,
+          response_model=NotificationRecordView, responses=NOTIFICATION_ERROR_RESPONSES)
+def notification_retry(notification_id: str, payload: NotificationRetry,
+                       service=Depends(internal_notifications)):
+    return service.retry(notification_id, payload)

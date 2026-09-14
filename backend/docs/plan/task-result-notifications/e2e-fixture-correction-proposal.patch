@@ -1,0 +1,11 @@
+--- a/backend/channel-gateway/tests/notifications/test_notification_e2e.py
++++ b/backend/channel-gateway/tests/notifications/test_notification_e2e.py
+@@ -103,7 +103,7 @@
+                 status = execution.chat_http_status
+                 if status == 200:
+                     execution.sql('INSERT INTO chat_histories '
+-                                  '(id,seq,conversation_id,result,created_at,updated_at) '
++                                  '(id,seq,conversation_id,result,create_time,update_time) '
+                                   'VALUES (%s,1,%s,%s,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)',
+                                   ('h_' + uuid.uuid4().hex, body['conversation_id'], execution.answer))
+             elif self.path == '/api/chat/llm-task:run':

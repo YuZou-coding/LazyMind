@@ -1,3 +1,4 @@
+from channel_gateway.common.infrastructure.notification_store import NotificationStoreMixin
 import datetime as dt
 import json
 import re
@@ -77,7 +78,7 @@ class PostgresRuntimeLease:
             pass
 
 
-class GatewayStore:
+class GatewayStore(NotificationStoreMixin):
     def __init__(
         self,
         dsn: str,
@@ -408,6 +409,7 @@ class GatewayStore:
         with self._connect() as connection:
             for statement in statements:
                 connection.execute(statement)
+            self.initialize_notifications(connection)
 
     def ping(self) -> None:
         with self._connect() as connection:
@@ -1306,7 +1308,7 @@ class GatewayStore:
             self._lock_runtime_fence(connection, runtime_fence)
             account = connection.execute(
                 """
-                SELECT id
+                SELECT id, connected_at
                 FROM channel_accounts
                 WHERE id = %s
                   AND owner_user_id = %s
@@ -1317,6 +1319,19 @@ class GatewayStore:
             ).fetchone()
             if account is None:
                 return False
+            retained = connection.execute(
+                'SELECT account_id FROM channel_notification_reconnects WHERE account_id=%s LIMIT 1',
+                (account_id,),
+            ).fetchone()
+            if retained or account.get('connected_at') is not None:
+                # A failed reconnect is not an orphan registration. Keep its
+                # stable identity, bindings and delivery history for retry.
+                connection.execute(
+                    "UPDATE channel_accounts SET status='disconnected',runtime_status='stopped',"
+                    "updated_at=CURRENT_TIMESTAMP WHERE id=%s AND owner_user_id=%s",
+                    (account_id, owner_user_id),
+                )
+                return True
             connection.execute(
                 """
                 UPDATE channel_connection_sessions
@@ -2375,6 +2390,9 @@ class GatewayStore:
         outbound: list[OutboundMessage],
     ) -> None:
         for sequence, message in enumerate(outbound):
+            if message.purpose == 'task_notification':
+                self.insert_notification(connection, message)
+                continue
             if (
                 message.purpose == 'welcome'
                 and not self._reserve_welcome(connection, message.account_id)

@@ -11,11 +11,20 @@ class AccountAdapter(Protocol):
     ) -> dict[str, Any]:
         ...
 
-    def disconnect_account(
-        self,
-        owner_user_id: str,
-        account_id: str,
-    ) -> None:
+    def disconnect_account(self, owner_user_id: str, account_id: str) -> None:
+        ...
+
+
+class TaskNotificationAdapter(Protocol):
+    """Optional proactive-notification capabilities of a delivery provider."""
+
+    def notification_capabilities(self) -> dict[str, Any]:
+        ...
+
+    def validate_notification_target(self, account_id: str, recipient_id: str) -> dict[str, Any]:
+        ...
+
+    def notification_recipients(self, account_id: str, page_size: int, page_token: str) -> dict[str, Any]:
         ...
 
 

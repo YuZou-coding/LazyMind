@@ -129,7 +129,7 @@ func TestLinkedTaskUsesWorkflowLifecycleWithoutRevivingCanceledTasks(t *testing.
 	for _, sample := range []struct{ task, workflow, want string }{
 		{"succeeded", "waiting", "waiting"}, {"succeeded", "active", "running"},
 		{"running", "completed", "succeeded"}, {"running", "failed", "failed"},
-		{"running", "stopped", "canceled"}, {"canceled", "active", "canceled"},
+		{"running", "stopped", "waiting"}, {"canceled", "active", "canceled"},
 	} {
 		t.Run(sample.task+"_"+sample.workflow, func(t *testing.T) {
 			db := orm.MigrateTestDB(t, &orm.TaskCenterTask{}, &orm.WorkflowSession{})

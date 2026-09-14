@@ -1,0 +1,51 @@
+--- a/backend/core/scheduler/scheduler_test.go
++++ b/backend/core/scheduler/scheduler_test.go
+@@ -16,7 +16,8 @@
+ 
+ func newTestSchedulerDB(t *testing.T) *orm.DB {
+ 	t.Helper()
+-	return orm.MigrateTestDB(t, &orm.UserSchedule{}, &orm.TaskCenterTask{}, &orm.UserUIPreferences{})
++	return orm.MigrateTestDB(t, &orm.UserSchedule{}, &orm.TaskCenterTask{}, &orm.UserUIPreferences{},
++		&orm.NotificationSettings{}, &orm.ScheduleNotificationRule{})
+ }
+ 
+ func newDependencyRuntimeTestDB(t *testing.T) *orm.DB {
+--- a/backend/core/workflow/store/host_session_test.go
++++ b/backend/core/workflow/store/host_session_test.go
+@@ -142,7 +142,7 @@
+ 
+ func TestSessionLifecycleCommandIsIdempotentAndInterruptsAttempt(t *testing.T) {
+ 	repo := testRepo(t)
+-	if err := repo.db.AutoMigrate(&orm.WorkflowSession{}, &orm.WorkflowSessionStep{}, &orm.WorkflowOutbox{}); err != nil {
++	if err := repo.db.AutoMigrate(&orm.WorkflowSession{}, &orm.WorkflowSessionStep{}, &orm.WorkflowOutbox{}, &orm.TaskCenterTask{}); err != nil {
+ 		t.Fatal(err)
+ 	}
+ 	now := time.Now().UTC()
+--- a/backend/core/common/error_catalog_test.go
++++ b/backend/core/common/error_catalog_test.go
+@@ -87,6 +87,25 @@
+ 	translations := map[string]map[string]string{}
+ 	if err := json.Unmarshal(data, &translations); err != nil {
+ 		t.Fatal(err)
++	}
++	backendTranslations := map[string]map[string]string{}
++	if err := json.Unmarshal(notificationErrorTranslationsJSON, &backendTranslations); err != nil {
++		t.Fatal(err)
++	}
++	for code, messages := range backendTranslations {
++		parsedCode, err := strconv.Atoi(code)
++		if err != nil {
++			t.Fatal(err)
++		}
++		for _, locale := range []string{"zh-CN", "en-US"} {
++			if existing := translations[code][locale]; existing != "" && existing != messages[locale] {
++				t.Errorf("conflicting translation for %s/%s", code, locale)
++			}
++			if got := NotificationErrorMessage(parsedCode, locale, ""); got != messages[locale] {
++				t.Errorf("backend response translation differs for %s/%s", code, locale)
++			}
++		}
++		translations[code] = messages
+ 	}
+ 	for key, appErr := range errorCatalog {
+ 		assertCatalogTranslations(t, translations, key, appErr)

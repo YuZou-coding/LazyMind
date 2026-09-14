@@ -2,6 +2,7 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
+from urllib.parse import urlsplit
 
 from channel_gateway.common.domain.channel import RuntimeFence, account_view
 from channel_gateway.common.errors import GatewayError
@@ -53,6 +54,7 @@ class FeishuCredentialStore:
                 display_name=str(
                     payload.get('display_name') or ''
                 ).strip(),
+                avatar_url=str(payload.get('avatar_url') or '').strip(),
             )
         except Exception as exc:
             raise RuntimeError(
@@ -136,7 +138,22 @@ class FeishuAccountService:
 
     def list_accounts(self, owner_user_id: str) -> dict[str, Any]:
         rows = self._store.list_accounts(owner_user_id, 'feishu')
-        return {'items': [account_view(row) for row in rows]}
+        items = []
+        for row in rows:
+            item = account_view(row)
+            item['avatar_url'] = None
+            try:
+                metadata = self._cipher.decrypt(owner_user_id, row['credentials_ciphertext'])
+                avatar = str(metadata.get('avatar_url') or '')
+                parsed = urlsplit(avatar)
+                if parsed.scheme == 'https' and parsed.hostname and not parsed.username and len(avatar) <= 4096:
+                    item['avatar_url'] = avatar
+            except Exception:
+                # Optional display metadata never conceals account identity or
+                # bypasses the strict credential checks used for sending.
+                pass
+            items.append(item)
+        return {'items': items}
 
     def disconnect_account(
         self,
@@ -149,7 +166,7 @@ class FeishuAccountService:
                 'ACCOUNT_NOT_FOUND',
                 '飞书账号不存在或已解除连接',
             )
-        if not self._store.delete_account(
+        if not self._store.disconnect_retaining_account(
             owner_user_id,
             account_id,
         ):

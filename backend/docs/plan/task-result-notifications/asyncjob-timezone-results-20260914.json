@@ -1,0 +1,213 @@
+{
+  "date": "2026-09-14",
+  "request": "User asked to continue fixing the remaining Core regression failure.",
+  "classification": "One-line correction of existing test fixture to match production UTC persistence; no runtime behavior change.",
+  "branch": "codex/feishu-task-notifications",
+  "worktree": "/Users/zouyu/Downloads/LazyMind-notifications",
+  "scope": "backend/ only",
+  "change": {
+    "path": "backend/core/asyncjob/runner_test.go",
+    "line": 345,
+    "before": "until := time.Now().Add(200 * time.Millisecond)",
+    "after": "until := time.Now().UTC().Add(200 * time.Millisecond)",
+    "sha256": "e05b1c94647d3888e1519e2a35947d85b722dcd676d15f3bd1deacb8ec1c4a7f",
+    "assertions_and_timeouts_changed": false
+  },
+  "root_cause": "The fixture directly persisted a local UTC+08 timestamp. SQLite compares these stored time values without normalizing their offsets, while the recovery predicate uses UTC. Production claim and heartbeat writers already normalize to UTC; the fixture did not.",
+  "verification": {
+    "before_local_sqlite": {
+      "command": "TEST_DB_DRIVER=sqlite go test ./asyncjob -run '^TestRunnerRecoversLeaseThatExpiresAfterStartup$' -count=1 -json",
+      "workdir": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/asyncjob-recovery-before-sqlite-20260914.json",
+      "log_sha256": "c2c2f3284a828430de708dadb32feb89287034eb53acf056e2b1c32f8774fde2",
+      "top_level_counts": {
+        "pass": 0,
+        "fail": 1,
+        "skip": 0
+      },
+      "failures_or_skips": [
+        {
+          "package": "lazymind/core/asyncjob",
+          "test": "TestRunnerRecoversLeaseThatExpiresAfterStartup",
+          "status": "fail"
+        }
+      ]
+    },
+    "before_local_postgres": {
+      "command": "TEST_DB_DRIVER=postgres TEST_DB_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test ./asyncjob -run '^TestRunnerRecoversLeaseThatExpiresAfterStartup$' -count=1 -json",
+      "workdir": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/asyncjob-recovery-before-pg-20260914.json",
+      "log_sha256": "1c1ff629e3b8f088642af0cde31e98de0fe68a0ea507d4fd122166136e0f9c8c",
+      "top_level_counts": {
+        "pass": 1,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_or_skips": []
+    },
+    "diagnostic_unchanged_test_utc": {
+      "command": "TZ=UTC TEST_DB_DRIVER=sqlite go test ./asyncjob -run '^TestRunnerRecoversLeaseThatExpiresAfterStartup$' -count=3 -json",
+      "workdir": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/asyncjob-recovery-utc-sqlite-20260914.json",
+      "log_sha256": "b4d41123c3c8c8f02c5ed127659ee4e2d330dd23e6363b79beb7be8b02709c92",
+      "top_level_counts": {
+        "pass": 3,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_or_skips": []
+    },
+    "file_sqlite_storage_diagnostic": {
+      "command": "go run /tmp/asyncjob-timezone-diagnostic-20260914.go",
+      "source_sha256": "74d338f0e14bedc64296e2ca68b918e75fec6d83600a681bbe2e0f2b629b20cc",
+      "output": {
+        "after": [
+          {
+            "ID": "local_fixture",
+            "StoredUntil": "2026-09-14 08:00:00+08:00",
+            "Expired": false,
+            "Status": "running"
+          },
+          {
+            "ID": "utc_fixture",
+            "StoredUntil": "",
+            "Expired": false,
+            "Status": "pending"
+          }
+        ],
+        "before": [
+          {
+            "ID": "local_fixture",
+            "StoredUntil": "2026-09-14 08:00:00+08:00",
+            "Expired": false,
+            "Status": "running"
+          },
+          {
+            "ID": "utc_fixture",
+            "StoredUntil": "2026-09-14 00:00:00+00:00",
+            "Expired": true,
+            "Status": "running"
+          }
+        ],
+        "comparison_time_utc": "2026-09-14T00:00:01Z",
+        "same_expiry_instant": true
+      }
+    },
+    "fixed_module_sqlite": {
+      "command": "TZ=Asia/Shanghai TEST_DB_DRIVER=sqlite go test ./asyncjob -count=1 -json",
+      "workdir": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/asyncjob-fixed-sqlite-20260914.json",
+      "log_sha256": "f12a7af04335deb0b68fcab6b796da683bf8933491ed6a4b8e41fa3ed7573554",
+      "top_level_counts": {
+        "pass": 27,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_or_skips": []
+    },
+    "fixed_module_postgres": {
+      "command": "TZ=Asia/Shanghai TEST_DB_DRIVER=postgres TEST_DB_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test ./asyncjob -count=1 -json",
+      "workdir": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/asyncjob-fixed-pg-20260914.json",
+      "log_sha256": "3089abd33a500ab8166cd662f2cdd21a47bb3814fec6d94b859eaadd88d720e7",
+      "top_level_counts": {
+        "pass": 27,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_or_skips": []
+    },
+    "core_full": {
+      "command": "TZ=Asia/Shanghai TEST_DB_DRIVER=sqlite MIGRATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test ./... -count=1 -json",
+      "workdir": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/notification-core-full-20260914.json",
+      "log_sha256": "07bed835db6213b399d605444624d16367d6a05177d4a09e085188b6aa34a01d",
+      "top_level_counts": {
+        "pass": 2500,
+        "fail": 0,
+        "skip": 8
+      },
+      "failures_or_skips": [
+        {
+          "package": "lazymind/core",
+          "test": "TestRunNotificationFixtureProcess",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestOrganizerBrowserFixture",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/capability/mcp",
+          "test": "TestRealLazyMindMCP",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/currentmemory",
+          "test": "TestCurrentMemoryPostgresContract",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/episode",
+          "test": "TestPostgresFTSCandidateContract",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/chat",
+          "test": "TestOpeningRealModelDescription",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/chat",
+          "test": "TestRedisCancelWatcherReleasesConnections",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/vocabulary",
+          "test": "TestAnkiClientLocalIntegration",
+          "status": "skip"
+        }
+      ]
+    }
+  },
+  "skip_reasons": {
+    "TestRunNotificationFixtureProcess": "Only invoked by E2E subprocess; complete E2E passed",
+    "TestOrganizerBrowserFixture": "Opt-in browser fixture",
+    "TestRealLazyMindMCP": "LAZYMIND_REAL_MCP_E2E not enabled",
+    "TestOpeningRealModelDescription": "Opt-in real model acceptance",
+    "TestCurrentMemoryPostgresContract": "CURRENT_MEMORY_POSTGRES_TEST_DSN not configured",
+    "TestRedisCancelWatcherReleasesConnections": "TEST_REDIS_URL not configured",
+    "TestPostgresFTSCandidateContract": "EPISODE_POSTGRES_TEST_DSN not configured",
+    "TestAnkiClientLocalIntegration": "ANKI_INTEGRATION / AnkiConnect not configured"
+  },
+  "production_files_changed_this_correction": [],
+  "asyncjob_production_unchanged_from_HEAD": [
+    "backend/core/asyncjob/runner.go",
+    "backend/core/asyncjob/repository.go",
+    "backend/core/asyncjob/types.go",
+    "backend/core/common/orm/testdb.go"
+  ],
+  "prior_notification_fingerprints_unchanged": {
+    "backend/channel-gateway/channel_gateway/feishu/domain.py": true,
+    "backend/channel-gateway/channel_gateway/feishu/sdk.py": true,
+    "backend/channel-gateway/channel_gateway/feishu/delivery.py": true,
+    "backend/channel-gateway/channel_gateway/feishu/notifications.py": true,
+    "backend/channel-gateway/channel_gateway/common/application/workers.py": true,
+    "backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py": true,
+    "backend/core/scheduler/scheduler_test.go": true,
+    "backend/core/workflow/store/host_session_test.go": true,
+    "backend/core/common/error_catalog_test.go": true
+  },
+  "static_checks": {
+    "gofmt": "passed",
+    "git_diff_check": "passed",
+    "scope": "backend only"
+  },
+  "not_retested": "Gateway/Feishu E2E unchanged because no production behavior changed; prior 178 gateway and 22 E2E passes retained.",
+  "not_performed": [
+    "Live Feishu delivery",
+    "Directory-external deployment, API/i18n publishing and frontend integration",
+    "Commit or push"
+  ]
+}

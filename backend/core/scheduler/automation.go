@@ -11,6 +11,7 @@ import (
 
 	"lazymind/core/common"
 	"lazymind/core/common/orm"
+	"lazymind/core/notifications"
 	"lazymind/core/store"
 )
 
@@ -273,15 +274,16 @@ func BatchCreateHandler(w http.ResponseWriter, r *http.Request) {
 			Timezone string `json:"timezone"`
 		} `json:"group"`
 		Tasks []struct {
-			ClientKey      string            `json:"client_key"`
-			Name           string            `json:"name"`
-			Remark         string            `json:"remark"`
-			CronExpr       string            `json:"cron_expr"`
-			Timezone       string            `json:"timezone"`
-			PromptTemplate string            `json:"prompt_template"`
-			KbIDs          []string          `json:"kb_ids"`
-			FileIDs        []string          `json:"file_ids"`
-			Dependencies   []dependencyInput `json:"dependencies"`
+			NotificationRule *notifications.Rule `json:"notification_rule"`
+			ClientKey        string              `json:"client_key"`
+			Name             string              `json:"name"`
+			Remark           string              `json:"remark"`
+			CronExpr         string              `json:"cron_expr"`
+			Timezone         string              `json:"timezone"`
+			PromptTemplate   string              `json:"prompt_template"`
+			KbIDs            []string            `json:"kb_ids"`
+			FileIDs          []string            `json:"file_ids"`
+			Dependencies     []dependencyInput   `json:"dependencies"`
 		} `json:"tasks"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Group.Name) == "" {
@@ -292,6 +294,12 @@ func BatchCreateHandler(w http.ResponseWriter, r *http.Request) {
 	var group orm.AutomationGroup
 	db := store.DB()
 	for _, item := range body.Tasks {
+		if item.NotificationRule != nil {
+			if err := notifications.ValidateRule(r.Context(), userID, *item.NotificationRule, false); err != nil {
+				notifications.ReplyError(w, r, err)
+				return
+			}
+		}
 		if err := validateScheduleDescription(r.Context(), item.PromptTemplate); err != nil {
 			common.ReplyErr(w, err.Error(), http.StatusBadRequest)
 			return
@@ -318,6 +326,11 @@ func BatchCreateHandler(w http.ResponseWriter, r *http.Request) {
 			s.FileIDs = string(files)
 			if err := CreateSchedule(r.Context(), tx, &s); err != nil {
 				return err
+			}
+			if item.NotificationRule != nil {
+				if err := notifications.ReplaceInitialRule(tx, s.ID, *item.NotificationRule); err != nil {
+					return err
+				}
 			}
 			created[item.ClientKey] = s.ID
 			deps := make([]dependencyInput, len(item.Dependencies))

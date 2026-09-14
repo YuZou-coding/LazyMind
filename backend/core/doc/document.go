@@ -331,6 +331,25 @@ func StaticFileReferenceFromAnyStoragePath(pathOrURL string) string {
 	return "/static-files/" + encodeStaticFilePath(filepath.ToSlash(rel))
 }
 
+// StaticFileSnapshotMetadata returns an unsigned managed-file reference and
+// its current size. Recheck containment after resolving symlinks, as downloads
+// do. Missing/unavailable files return size zero so callers can report them.
+func StaticFileSnapshotMetadata(pathOrURL string) (string, int64) {
+	reference := StaticFileReferenceFromAnyStoragePath(pathOrURL)
+	if reference == "" {
+		return "", 0
+	}
+	fullPath := resolveSignedStaticFullPath(relFromStaticFilesURL(reference))
+	if fullPath == "" || StaticFileReferenceFromAnyStoragePath(fullPath) != reference {
+		return "", 0
+	}
+	info, err := os.Stat(fullPath)
+	if err != nil || !info.Mode().IsRegular() {
+		return reference, 0
+	}
+	return reference, info.Size()
+}
+
 func encodeStaticFilePath(rel string) string {
 	parts := strings.Split(rel, "/")
 	for i, part := range parts {

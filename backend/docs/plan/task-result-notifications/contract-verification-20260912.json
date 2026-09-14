@@ -1,0 +1,10 @@
+{
+  "permission_routes": 13,
+  "gateway_notification_paths": 9,
+  "permission_codes": [
+    "qa.read",
+    "qa.write"
+  ],
+  "new_gateway_responses_have_schemas": true,
+  "directory_external_exports_written": false
+}

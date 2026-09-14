@@ -16,7 +16,8 @@ import (
 
 func newTestSchedulerDB(t *testing.T) *orm.DB {
 	t.Helper()
-	return orm.MigrateTestDB(t, &orm.UserSchedule{}, &orm.TaskCenterTask{}, &orm.UserUIPreferences{})
+	return orm.MigrateTestDB(t, &orm.UserSchedule{}, &orm.TaskCenterTask{}, &orm.UserUIPreferences{},
+		&orm.NotificationSettings{}, &orm.ScheduleNotificationRule{})
 }
 
 func newDependencyRuntimeTestDB(t *testing.T) *orm.DB {

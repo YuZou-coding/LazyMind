@@ -1,4 +1,5 @@
 import hashlib
+import base64
 import logging
 import threading
 import time
@@ -17,12 +18,15 @@ from channel_gateway.common.domain.outbound import (
 )
 from channel_gateway.common.errors import (
     InvalidStaticAssetError,
+    GatewayError,
 )
 from channel_gateway.common.ports.core import StaticAssetClient
 from channel_gateway.common.ports.providers import RuntimeCredentialStore
 from channel_gateway.common.ports.messaging import ReplyStream
+from channel_gateway.feishu.notifications import render_notification
 from channel_gateway.feishu.domain import (
     FeishuRuntimeError,
+    FeishuSendRejectedError,
     workspace_card_expired,
 )
 from channel_gateway.feishu.ports import (
@@ -382,6 +386,8 @@ class FeishuDeliveryProvider:
         self,
         message: ClaimedOutbound,
     ) -> list[dict[str, Any]]:
+        if message.purpose == 'task_notification':
+            return render_notification(message.metadata['task_notification'])
         message = self._persist_workspace_result(message)
         parts = self._renderer.render(message)
         sources = [
@@ -505,6 +511,96 @@ class FeishuDeliveryProvider:
     ) -> dict[str, Any]:
         return saved_state
 
+    def validate_notification_target(self, account_id, recipient_id):
+        account = self._credentials.load_runtime_account(account_id)
+        if account['status'] != 'connected':
+            raise GatewayError(409, 'ACCOUNT_UNAVAILABLE', '账号已断开，请重连')
+        credentials = account['credentials']
+        if recipient_id == credentials.provider_account_id:
+            return {'chat_mode': 'verified_person'}
+        sender = self._channels.create_sender(credentials)
+        try:
+            chat = sender.get_chat(chat_id=recipient_id)
+            if chat.get('chat_mode') != 'group':
+                raise GatewayError(422, 'NOTIFICATION_RECIPIENT_UNVERIFIED', '个人接收对象身份尚未验证')
+            if not chat.get('bot_in_chat'):
+                raise GatewayError(422, 'FEISHU_CHAT_UNAVAILABLE', '机器人已不在该群聊中')
+            if not chat.get('can_send'):
+                raise GatewayError(422, 'FEISHU_PERMISSION_DENIED', '机器人没有发送权限')
+            return chat
+        except GatewayError:
+            raise
+        except ValueError as exc:
+            raise GatewayError(422, 'NOTIFICATION_RECIPIENT_UNVERIFIED',
+                               '接收对象无效或个人身份尚未验证') from exc
+        except Exception as exc:
+            raise GatewayError(503, 'NOTIFICATION_TARGET_UNAVAILABLE', '暂时无法验证接收对象，请稍后重试', True) from exc
+        finally:
+            sender.close()
+
+    @staticmethod
+    def notification_capabilities():
+        return {'task_notifications': True, 'proactive_send': True,
+                'formats': ['card', 'image', 'file'], 'recipient_types': ['group', 'verified_person'],
+                'limits': {'card_bytes': 28 * 1024, 'image_bytes': _MAX_FEISHU_IMAGE_BYTES,
+                           'file_bytes': _MAX_FEISHU_FILE_BYTES}}
+
+    def notification_recipients(self, account_id, page_size, page_token):
+        account = self._credentials.load_runtime_account(account_id)
+        sender = self._channels.create_sender(account['credentials'])
+        try:
+            data = sender.list_chats(page_size=page_size, page_token=page_token)
+            items = [{'recipient_id': row['chat_id'], 'name': row.get('name', ''), 'type': 'group'}
+                     for row in data.get('items', [])[:page_size]]
+            # The owner identity was verified by registration. It can be
+            # selected explicitly even when the bot has not joined any groups.
+            return {'items': items, 'next_page_token': data.get('page_token', ''),
+                    'verified_person': {'recipient_id': account['credentials'].provider_account_id,
+                                        'name': account['label'], 'type': 'verified_person'}}
+        finally:
+            sender.close()
+
+    def _send_notification_part(self, message, part, idempotency_key, saved_state):
+        account = self._credentials.load_runtime_account(message.account_id)
+        sender = self._channels.create_sender(account['credentials'])
+        chat_id = message.recipient_id
+        is_person = chat_id == account['credentials'].provider_account_id
+        try:
+            if part['kind'] == 'card':
+                if is_person:
+                    receipt = sender.send_card_to_user(open_id=chat_id, card=part['card'],
+                                                       idempotency_key=idempotency_key)
+                else:
+                    receipt = sender.send_card(chat_id=chat_id, card=part['card'],
+                                               idempotency_key=idempotency_key)
+            else:
+                if part.get('inline_base64'):
+                    content = base64.b64decode(part['inline_base64'], validate=True)
+                else:
+                    source = part.get('source', '')
+                    if not source:
+                        raise GatewayError(422, 'NOTIFICATION_ARTIFACT_UNAVAILABLE', '产物不可读取，请回 LazyMind 查看')
+                    download = (self._lazymind.download_static_image if part['kind'] == 'image'
+                                else self._lazymind.download_static_file)
+                    content = download(source=source, owner_user_id=str(account['owner_user_id']))
+                limit = _MAX_FEISHU_IMAGE_BYTES if part['kind'] == 'image' else _MAX_FEISHU_FILE_BYTES
+                if not content or len(content) > limit:
+                    raise GatewayError(422, 'NOTIFICATION_ARTIFACT_UNAVAILABLE', '产物为空或超过平台限制，请回 LazyMind 查看')
+                kwargs = {'chat_id': chat_id, 'content': content, 'idempotency_key': idempotency_key}
+                if is_person:
+                    kwargs['receive_id_type'] = 'open_id'
+                if part['kind'] == 'image':
+                    receipt = sender.send_image(**kwargs, caption=part.get('name', ''))
+                else:
+                    receipt = sender.send_file(**kwargs, filename=part.get('filename', part.get('name', '结果文件')))
+            return {**saved_state, 'message_id': receipt or ''}
+        except FeishuSendRejectedError as exc:
+            raise GatewayError(422, 'FEISHU_SEND_REJECTED', '飞书拒绝了此内容，请检查后重试') from exc
+        except InvalidStaticAssetError as exc:
+            raise GatewayError(422, 'NOTIFICATION_ARTIFACT_UNAVAILABLE', '产物不可读取，请回 LazyMind 查看') from exc
+        finally:
+            sender.close()
+
     def send_part(
         self,
         message: ClaimedOutbound,
@@ -514,6 +610,8 @@ class FeishuDeliveryProvider:
         idempotency_key: str,
         saved_state: dict[str, Any],
     ) -> dict[str, Any] | None:
+        if message.purpose == 'task_notification':
+            return self._send_notification_part(message, part, idempotency_key, saved_state)
         chat_id = str(
             message.provider_context.get('chat_id')
             or message.recipient_id

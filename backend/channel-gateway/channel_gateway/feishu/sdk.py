@@ -66,6 +66,7 @@ from channel_gateway.feishu.domain import (
     FeishuInboundMenu,
     FeishuInboundMessage,
     FeishuRuntimeError,
+    FeishuSendRejectedError,
     workspace_card_expired,
 )
 from channel_gateway.feishu.presentation import (
@@ -1224,6 +1225,7 @@ class LarkChannelClient:
         send_timeout_seconds: float = 60,
         connect_timeout_seconds: float = 30,
     ):
+        self._notification_credentials = credentials
         self._send_timeout_seconds = send_timeout_seconds
         self._connect_timeout_seconds = connect_timeout_seconds
         self._stopped = threading.Event()
@@ -1329,6 +1331,68 @@ class LarkChannelClient:
     def close(self) -> None:
         self.stop()
 
+    def _notification_api(self):
+        import lark_oapi
+        credentials = self._notification_credentials
+        return (lark_oapi.Client.builder().app_id(credentials.app_id)
+                .app_secret(credentials.app_secret).timeout(60).build())
+
+    @staticmethod
+    def _notification_response(response):
+        import lark_oapi
+        from channel_gateway.common.errors import GatewayError
+        if not response.success():
+            code = int(response.code or 0)
+            if code in {99991663, 99991672, 99991679}:
+                raise GatewayError(422, 'FEISHU_SCOPE_REQUIRED', '请为原飞书账号补充群信息读取授权')
+            if code in _FEISHU_RATE_LIMIT_CODES:
+                raise GatewayError(503, 'FEISHU_RATE_LIMITED', '飞书请求频繁，请稍后重试', True)
+            if code in {232001, 232004, 232006}:
+                raise GatewayError(422, 'FEISHU_CHAT_UNAVAILABLE', '群聊已失效或机器人不在群内')
+            raise GatewayError(422, 'FEISHU_PERMISSION_DENIED', '无法读取或发送到该飞书群，请检查授权')
+        try:
+            data = json.loads(lark_oapi.JSON.marshal(response.data))
+        except (ValueError, TypeError) as exc:
+            raise GatewayError(503, 'NOTIFICATION_TARGET_UNAVAILABLE', '飞书响应暂时不可用', True) from exc
+        if not isinstance(data, dict):
+            raise GatewayError(503, 'NOTIFICATION_TARGET_UNAVAILABLE', '飞书响应暂时不可用', True)
+        return data
+
+    def list_chats(self, *, page_size=50, page_token=''):
+        from lark_oapi.api.im.v1 import ListChatRequest
+        request = (ListChatRequest.builder().page_size(page_size)
+                   .page_token(page_token).user_id_type('open_id').build())
+        return self._notification_response(self._notification_api().im.v1.chat.list(request))
+
+    def get_chat(self, *, chat_id):
+        from lark_oapi.api.im.v1 import (
+            GetChatRequest, IsInChatChatMembersRequest, GetChatModerationRequest,
+        )
+        client = self._notification_api()
+        chat = self._notification_response(client.im.v1.chat.get(
+            GetChatRequest.builder().chat_id(chat_id).user_id_type('open_id').build()))
+        membership = self._notification_response(client.im.v1.chat_members.is_in_chat(
+            IsInChatChatMembersRequest.builder().chat_id(chat_id).build()))
+        can_send = False
+        page_token = ''
+        while True:
+            moderation = self._notification_response(client.im.v1.chat_moderation.get(
+                GetChatModerationRequest.builder().chat_id(chat_id).user_id_type('open_id')
+                .page_size(100).page_token(page_token).build()))
+            if moderation.get('moderation_setting') == 'all_members':
+                can_send = True
+                break
+            bot_id = self._notification_credentials.app_id
+            if any(item.get('user_id') == bot_id for item in moderation.get('items', [])):
+                can_send = True
+                break
+            next_token = moderation.get('page_token', '')
+            if not moderation.get('has_more') or not next_token or next_token == page_token:
+                break
+            page_token = next_token
+        return {**chat, 'chat_id': chat_id, 'bot_in_chat': membership.get('is_in_chat') is True,
+                'can_send': can_send}
+
     def send_markdown(
         self,
         *,
@@ -1381,14 +1445,16 @@ class LarkChannelClient:
         content: bytes,
         caption: str,
         idempotency_key: str,
-    ) -> None:
-        self._send(
+        receive_id_type: str = 'chat_id',
+    ) -> str:
+        return self._send(
             chat_id=chat_id,
             message=OutboundImage(
                 source=MediaSource(kind='buffer', buffer=content),
                 caption=caption or None,
             ),
             idempotency_key=idempotency_key,
+            receive_id_type=receive_id_type,
         )
 
     def upload_image(self, *, content: bytes) -> str:
@@ -1472,14 +1538,16 @@ class LarkChannelClient:
         content: bytes,
         filename: str,
         idempotency_key: str,
-    ) -> None:
-        self._send(
+        receive_id_type: str = 'chat_id',
+    ) -> str:
+        return self._send(
             chat_id=chat_id,
             message=OutboundFile(
                 source=MediaSource(kind='buffer', buffer=content),
                 file_name=filename,
             ),
             idempotency_key=idempotency_key,
+            receive_id_type=receive_id_type,
         )
 
     def start_card_stream(
@@ -1561,9 +1629,7 @@ class LarkChannelClient:
                     'Feishu send failed',
                     error,
                 )
-            raise FeishuRuntimeError(
-                f'Feishu send failed: {error}'
-            )
+            raise FeishuSendRejectedError('Feishu rejected the message')
         message_id = str(result.message_id or '')
         if not message_id:
             raise FeishuRuntimeError(

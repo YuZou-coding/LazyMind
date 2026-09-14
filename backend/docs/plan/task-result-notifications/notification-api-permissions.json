@@ -1,0 +1,93 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/core/user/notification-settings",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/core/user/notification-settings",
+    "permissions": [
+      "qa.write"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/core/user/notification-settings/disable-impact",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/core/schedules/{schedule_id}/notification-rule",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/core/schedules/{schedule_id}/notification-rule",
+    "permissions": [
+      "qa.write"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/core/schedules/{schedule_id}/notification-rule:reset",
+    "permissions": [
+      "qa.write"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/core/task-center/tasks/{task_id}/notifications",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/core/task-center/notifications/{notification_id}:retry",
+    "permissions": [
+      "qa.write"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/channel-gateway/v1/notification-capabilities",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/channel-gateway/v1/channel-accounts/{account_id}/notification-recipients",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/channel-gateway/v1/channel-accounts/{account_id}/notification-references",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/api/channel-gateway/v1/channel-accounts/{account_id}/disconnect-impact",
+    "permissions": [
+      "qa.read"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/api/channel-gateway/v1/channel-accounts/{account_id}:reconnect",
+    "permissions": [
+      "qa.write"
+    ]
+  }
+]

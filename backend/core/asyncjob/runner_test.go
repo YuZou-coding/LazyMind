@@ -342,7 +342,7 @@ func TestRunnerRecoversLeaseThatExpiresAfterStartup(t *testing.T) {
 		return Result{}, nil
 	})
 	job := enqueueTestJob(t, db, "test.recover-later", 3)
-	until := time.Now().Add(200 * time.Millisecond)
+	until := time.Now().UTC().Add(200 * time.Millisecond)
 	if err := db.Model(&orm.AsyncJob{}).Where("id = ?", job.ID).Updates(map[string]any{"status": StatusRunning, "lock_until": until, "locked_by": "previous-process", "attempt_count": 1}).Error; err != nil {
 		t.Fatal(err)
 	}

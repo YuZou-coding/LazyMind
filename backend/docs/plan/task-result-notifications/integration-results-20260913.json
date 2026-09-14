@@ -1,0 +1,287 @@
+{
+  "date": "2026-09-13",
+  "branch": "codex/feishu-task-notifications",
+  "baseline": "44c4e038e645cbc3b0336b895ac092517084e11e",
+  "worktree": "/Users/zouyu/Downloads/LazyMind-notifications",
+  "scope": "backend/ only",
+  "phase": "Approved implementation verified; supplementary SDK tests and three existing-test adaptations awaiting Review",
+  "verification": {
+    "gateway_approved": {
+      "command": "PYTHONPATH=backend/channel-gateway NOTIFICATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres?gssencmode=disable /tmp/lazymind-notification-tests-venv/bin/python -m pytest backend/channel-gateway/tests/notifications backend/channel-gateway/test_security.py --ignore=backend/channel-gateway/tests/notifications/test_notification_e2e.py --ignore=backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py -q --tb=short",
+      "scope": "Approved gateway tests and existing security; SQLite and PostgreSQL. SDK test file did not yet exist in that run; ignore it for reproduction.",
+      "log": "/tmp/notification-gateway-final-gss.txt",
+      "log_sha256": "0848e1bb1bbbf15e65b33b7e3b00f355088de177d32408ce7cc474447e25c8b2",
+      "summary": "174 passed, 4 warnings in 97.08s (0:01:37)",
+      "failures": []
+    },
+    "core_sqlite": {
+      "command": "TEST_DB_DRIVER=sqlite go test . ./scheduler ./taskcenter ./workflow ./workflow/store ./common -run '^Test(Notification|OpenAPI|Finalize|TaskOutput|LinkedTask|.*Stop|.*Pause|CoreErrorConstructorsAreCatalogued)' -count=1 -json",
+      "scope": "Core working directory; file SQLite for notification tests; selected legacy tests retain their fixtures.",
+      "log": "/tmp/notification-core-final-sqlite-env.json",
+      "log_sha256": "8826f71a6e3a4b5e89ad4f45c3bdcb1759e732eacc5cd48651e07399e9a617fb",
+      "top_level_counts": {
+        "pass": 73,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_or_skips": []
+    },
+    "core_postgres": {
+      "command": "TEST_DB_DRIVER=postgres TEST_DB_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test . ./scheduler ./taskcenter ./workflow ./workflow/store ./common -run '^Test(Notification|OpenAPI|Finalize|TaskOutput|LinkedTask|.*Stop|.*Pause|CoreErrorConstructorsAreCatalogued)' -count=1 -json",
+      "scope": "Core working directory; real PostgreSQL for notification tests; selected legacy tests retain their fixtures.",
+      "log": "/tmp/notification-core-final-pg-env.json",
+      "log_sha256": "adf0d7fc2e6662acc9b23cc2fbb2bd60d390870d951221fbaf1bbd2550214ed8",
+      "top_level_counts": {
+        "pass": 73,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_or_skips": []
+    },
+    "migrations": {
+      "command": "MIGRATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test ./migrate -count=1 -json",
+      "scope": "Core working directory; notification migration tests internally cover both databases.",
+      "log": "/tmp/notification-migrations-final-current.json",
+      "log_sha256": "99c54f4236ee192de820c63ebe3d23806e393015fdc7780656685922a39cf4e5",
+      "top_level_counts": {
+        "pass": 47,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_or_skips": []
+    },
+    "e2e": {
+      "command": "PGGSSENCMODE=disable PYTHONPATH=backend/channel-gateway NOTIFICATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres /tmp/lazymind-notification-tests-venv/bin/python -m pytest backend/channel-gateway/tests/notifications/test_notification_e2e.py -q --tb=short",
+      "scope": "Real Core and gateway processes; file SQLite and PostgreSQL; fake model and Feishu boundaries. Includes final graceful lease release fix.",
+      "log": "/tmp/notification-e2e-final-recovery.txt",
+      "log_sha256": "6bc77437cfa60a75bf97be8891dc69ee326a3aecf898023a30b6bcd6dc318b9c",
+      "summary": "22 passed, 6 warnings in 71.95s (0:01:11)",
+      "failures": []
+    },
+    "new_sdk_review": {
+      "command": "PGGSSENCMODE=disable PYTHONPATH=backend/channel-gateway NOTIFICATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres /tmp/lazymind-notification-tests-venv/bin/python -m pytest backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py -q --tb=short",
+      "scope": "New tests, not yet approved; four expected failures at first status assertion. Later assertions not yet reached. No production classification fix.",
+      "log": "/tmp/notification-sdk-review-tests-20260913.txt",
+      "log_sha256": "42a8540d3bc4985ffcefa9991a1a725f2aa9cc6c4b264c012b87b4d73644657d",
+      "summary": "4 failed, 4 warnings in 3.07s",
+      "failures": [
+        "FAILED backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py::test_notification_explicit_sdk_rejection_does_not_block_later_artifact[sqlite]",
+        "FAILED backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py::test_notification_explicit_sdk_rejection_does_not_block_later_artifact[postgres]",
+        "FAILED backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py::test_notification_explicit_sdk_rejection_has_no_ambiguous_send_window[sqlite]",
+        "FAILED backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py::test_notification_explicit_sdk_rejection_has_no_ambiguous_send_window[postgres]"
+      ]
+    },
+    "core_full_historical": {
+      "command": "TEST_DB_DRIVER=sqlite MIGRATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test ./... -count=1 -json",
+      "scope": "Historical wider regression before subsequent error constructor correction; do not interpret as current complete-pass evidence.",
+      "log": "/tmp/notification-core-full-current.json",
+      "log_sha256": "5e8a2f9d431a7654aaa56b8355180f0e74cff2e03a3abfdd89f15df447f0ef60",
+      "top_level_counts": {
+        "pass": 2495,
+        "fail": 5,
+        "skip": 8
+      },
+      "failures_or_skips": [
+        {
+          "package": "lazymind/core",
+          "test": "TestRunNotificationFixtureProcess",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestOrganizerBrowserFixture",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/capability/mcp",
+          "test": "TestRealLazyMindMCP",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/chat",
+          "test": "TestOpeningRealModelDescription",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/common",
+          "test": "TestErrorCatalogCodesHaveTranslations",
+          "status": "fail"
+        },
+        {
+          "package": "lazymind/core/common",
+          "test": "TestCoreErrorConstructorsAreCatalogued",
+          "status": "fail"
+        },
+        {
+          "package": "lazymind/core/asyncjob",
+          "test": "TestRunnerRecoversLeaseThatExpiresAfterStartup",
+          "status": "fail"
+        },
+        {
+          "package": "lazymind/core/currentmemory",
+          "test": "TestCurrentMemoryPostgresContract",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/chat",
+          "test": "TestRedisCancelWatcherReleasesConnections",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/episode",
+          "test": "TestPostgresFTSCandidateContract",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestCreateAndCancelSchedule",
+          "status": "fail"
+        },
+        {
+          "package": "lazymind/core/vocabulary",
+          "test": "TestAnkiClientLocalIntegration",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/workflow/store",
+          "test": "TestSessionLifecycleCommandIsIdempotentAndInterruptsAttempt",
+          "status": "fail"
+        }
+      ]
+    },
+    "unrelated_baseline": {
+      "command": "go test ./asyncjob -run ^TestRunnerRecoversLeaseThatExpiresAfterStartup$ -count=1 -json",
+      "scope": "Pristine git archive of 44c4e038 in /tmp/lazymind-notification-baseline.GhF118/backend/core; no notification changes.",
+      "log": "/tmp/notification-unrelated-asyncjob-baseline.json",
+      "log_sha256": "bc551698beeb43a23da09dc7da2464c4e6c0c2e0f97ff140cb91bfe7e83c72a7",
+      "top_level_counts": {
+        "pass": 0,
+        "fail": 1,
+        "skip": 0
+      },
+      "failures_or_skips": [
+        {
+          "package": "lazymind/core/asyncjob",
+          "test": "TestRunnerRecoversLeaseThatExpiresAfterStartup",
+          "status": "fail"
+        }
+      ]
+    }
+  },
+  "verification_notes": {
+    "counts_overlap": true,
+    "gss": "Use PGGSSENCMODE=disable for Python/libpq tests. Do not include gssencmode in a shared Go pgx DSN. No production config or deadline changes.",
+    "prior_environment_attempts": [
+      "/tmp/notification-e2e-final-current.txt: incorrect shared DSN parameter caused startup errors",
+      "/tmp/notification-gateway-final-current.txt: local GSS connection latency exceeded test deadlines"
+    ],
+    "prior_code_attempts": [
+      "/tmp/notification-e2e-final-env.txt: 21 passed, one restart test failed; graceful lease release fixed and complete E2E rerun passed"
+    ],
+    "dependency_warnings": "Existing anyio, lark datetime/event loop and websockets deprecations; no dependency changes."
+  },
+  "full_core_failure_disposition": {
+    "TestErrorCatalogCodesHaveTranslations": "Pending reviewed patch: include real backend-owned translations",
+    "TestCoreErrorConstructorsAreCatalogued": "Fixed by using existing safe dependency-unavailable error; subsequent SQLite and PostgreSQL focused runs pass",
+    "TestCreateAndCancelSchedule": "Pending reviewed patch: missing notification tables in old fixture",
+    "TestSessionLifecycleCommandIsIdempotentAndInterruptsAttempt": "Pending reviewed patch: missing task-center table in old fixture",
+    "TestRunnerRecoversLeaseThatExpiresAfterStartup": "Reproduced on pristine baseline; outside notification scope, not fixed"
+  },
+  "full_core_skip_reasons": {
+    "TestRunNotificationFixtureProcess": "Only invoked by E2E subprocess; complete E2E passed",
+    "TestOrganizerBrowserFixture": "Opt-in browser fixture",
+    "TestRealLazyMindMCP": "LAZYMIND_REAL_MCP_E2E not enabled",
+    "TestOpeningRealModelDescription": "Opt-in real model acceptance",
+    "TestCurrentMemoryPostgresContract": "CURRENT_MEMORY_POSTGRES_TEST_DSN not configured",
+    "TestRedisCancelWatcherReleasesConnections": "TEST_REDIS_URL not configured",
+    "TestPostgresFTSCandidateContract": "EPISODE_POSTGRES_TEST_DSN not configured",
+    "TestAnkiClientLocalIntegration": "ANKI_INTEGRATION / AnkiConnect not configured"
+  },
+  "pending_review": {
+    "new_test": {
+      "path": "backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py",
+      "sha256": "5fc93a53442d6bacdf8d42841e20c9ccb7085f10c52487a2afb937a7d1ff55d0",
+      "production_fix_implemented": false,
+      "expected_failure_count": 4
+    },
+    "existing_patch": {
+      "path": "backend/docs/plan/task-result-notifications/integration-review-proposal.patch",
+      "sha256": "4b5fc521d092947207a7cf9c6436dd852c187e67335b25b15cd112ffb12a5266",
+      "applied": false,
+      "apply_check": "passed"
+    },
+    "unchanged_existing_test_files": {
+      "backend/core/scheduler/scheduler_test.go": {
+        "sha256": "08379a2d9acf86d50ace907a93ebcd36175b95cf6ec9f8312ace73f88f9f8cb9",
+        "unchanged_from_HEAD": true
+      },
+      "backend/core/workflow/store/host_session_test.go": {
+        "sha256": "6816cb58ee208363aaa9565be9d020503dbf92dd8cb48bfaf504ddb5d76d2a97",
+        "unchanged_from_HEAD": true
+      },
+      "backend/core/common/error_catalog_test.go": {
+        "sha256": "82cd95c6c0b34f67fafbb4f7679f6296913c7a6100b572ed3265fb237a0715d1",
+        "unchanged_from_HEAD": true
+      }
+    }
+  },
+  "previously_reviewed_test_fingerprints": {
+    "backend/core/notification_api_test.go": {
+      "reference_report": "test-correction-results.json",
+      "unchanged": true
+    },
+    "backend/core/scheduler/notification_lifecycle_test.go": {
+      "reference_report": "test-correction-results.json",
+      "unchanged": true
+    },
+    "backend/core/scheduler/automation_test.go": {
+      "reference_report": "test-correction-results.json",
+      "unchanged": true
+    },
+    "backend/core/notification_workflow_lifecycle_test.go": {
+      "reference_report": "phase2-workflow-review-results-20260911.json",
+      "unchanged": true
+    }
+  },
+  "notification_test_sha256": {
+    "backend/channel-gateway/tests/notifications/conftest.py": "c3ba4de756f59406215a203ecfd35383f83c76a3d678b721658e0b3268544e0b",
+    "backend/channel-gateway/tests/notifications/test_notification_accounts.py": "2a3bab05700f9e5424002eabe287d80a4df67b0bb10513abd1dc944971e9a823",
+    "backend/channel-gateway/tests/notifications/test_notification_api.py": "c5b422bcd0740718b5c174ee8814eeaebc80510491943bc635a7d93b6d4bf97b",
+    "backend/channel-gateway/tests/notifications/test_notification_content.py": "5cb9477d6a6c90bd07e3dbd7c0f98542f5a6eb11bfb7b85ad3cb98363721f849",
+    "backend/channel-gateway/tests/notifications/test_notification_delivery.py": "2740f7b5ad93cfb7e028b0774a2710090e64b7005844001a2f81fc4b8fa17f19",
+    "backend/channel-gateway/tests/notifications/test_notification_e2e.py": "b459580271f5c78108e8f2fb391f64e3a768a67c9cdad7b0a32dd8154735c2ae",
+    "backend/channel-gateway/tests/notifications/test_notification_protocol.py": "3bcfc40eaf0948a58061a63d19bc19ffb270164f36d196ff09b7adb8b3186991",
+    "backend/channel-gateway/tests/notifications/test_notification_recovery.py": "921b842d241f1cc7e1a6b8b41ebc6ae4331728244561f406665eefca6e892f1d",
+    "backend/channel-gateway/tests/notifications/test_notification_reply_regression.py": "8c96d0a93efc9af1a6b2179af6251de963fc3c4081e541c7f24160ba552c4ff6",
+    "backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py": "5fc93a53442d6bacdf8d42841e20c9ccb7085f10c52487a2afb937a7d1ff55d0",
+    "backend/core/migrate/notification_migration_test.go": "5c052bdc5c1a4ac867e180257a5ee1f0e7fb27e022942d435957c779c2376025",
+    "backend/core/notification_api_test.go": "4e2ffbab67bbf3278a0360782a0f2cf55cde4e96cdb1dbcbd2cf0851a0a18fca",
+    "backend/core/notification_process_fixture_test.go": "b33526ab3011b4dd993503263c2e425e666884e6b5d6f5fcee4d468f4a1a0706",
+    "backend/core/notification_workflow_lifecycle_test.go": "1a29ca40c2be1b7b8b6e264e17f397da5ffc461b9a7ca291d0f5276ee1256ffd",
+    "backend/core/scheduler/notification_lifecycle_test.go": "2a2add07ae0ff08529b09c4ad952362bf6da0564496cb6d7d005db19b5544a7d"
+  },
+  "static_checks": {
+    "flake8": "passed: gateway production and new SDK tests, max-line-length=120",
+    "gofmt": "passed: all modified/new Go files",
+    "git_diff_check": "passed",
+    "scope": "all modified and untracked repository paths under backend/",
+    "permissions_and_openapi": {
+      "permission_routes": 13,
+      "gateway_notification_paths": 9,
+      "permission_codes": [
+        "qa.read",
+        "qa.write"
+      ],
+      "new_gateway_responses_have_schemas": true,
+      "directory_external_exports_written": false
+    },
+    "documentation": "passed: relative links, JSON parsing, pending-test and patch fingerprints, backend-only scope"
+  },
+  "not_performed": [
+    "Live Feishu delivery",
+    "Directory-external deployment, frontend, contract and i18n exports",
+    "Commit or push",
+    "SDK rejection production fix",
+    "Applying the proposed existing-test patch"
+  ]
+}

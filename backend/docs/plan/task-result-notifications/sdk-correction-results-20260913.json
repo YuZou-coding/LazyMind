@@ -1,0 +1,205 @@
+{
+  "date": "2026-09-13",
+  "authorization": "User replied 继续 directly to the concrete request to approve new SDK tests and three existing-test adaptations; this batch proceeded under that confirmation.",
+  "branch": "codex/feishu-task-notifications",
+  "worktree": "/Users/zouyu/Downloads/LazyMind-notifications",
+  "scope": "backend/ only",
+  "phase": "Approved correction implemented and verified; no further Review request for this batch",
+  "business_result": [
+    "Definitive non-retryable SDK rejection maps to safe FEISHU_SEND_REJECTED on the notification boundary",
+    "Rejected artifact is failed, its named warning is persisted atomically and later artifacts continue",
+    "Manual retry resets failed part to pending; successfully sent cards/files/warnings are retained",
+    "A later queue retry does not automatically retry a definitive failed part",
+    "Rejection of a retry does not clear an earlier ambiguous request; history remains unknown and requires duplicate-risk confirmation",
+    "Three approved existing-test fixture/catalog adaptations applied without weakening their assertions"
+  ],
+  "verification": {
+    "sdk_first_fix": {
+      "command": "PGGSSENCMODE=disable PYTHONPATH=backend/channel-gateway NOTIFICATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres /tmp/lazymind-notification-tests-venv/bin/python -m pytest backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py -q --tb=short",
+      "working_directory": "/Users/zouyu/Downloads/LazyMind-notifications",
+      "log": "/tmp/notification-sdk-fixed-20260913.txt",
+      "log_sha256": "166a4310dd2dbd00265e69d31596fe086fc3ed381b2fc869453492a3711336cd",
+      "summary": "4 passed, 4 warnings in 4.10s"
+    },
+    "gateway_complete": {
+      "command": "PGGSSENCMODE=disable PYTHONPATH=backend/channel-gateway NOTIFICATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres /tmp/lazymind-notification-tests-venv/bin/python -m pytest backend/channel-gateway/tests/notifications backend/channel-gateway/test_security.py --ignore=backend/channel-gateway/tests/notifications/test_notification_e2e.py -q --tb=short",
+      "working_directory": "/Users/zouyu/Downloads/LazyMind-notifications",
+      "log": "/tmp/notification-gateway-complete-20260913.txt",
+      "log_sha256": "318a478a2371953cf1d805b076c8d6a547bab5c4252e086a176363f1878991f0",
+      "summary": "178 passed, 4 warnings in 99.10s (0:01:39)"
+    },
+    "sqlite_review_adaptations": {
+      "command": "TEST_DB_DRIVER=sqlite go test ./common ./scheduler ./workflow/store -run 'Test(ErrorCatalogCodesHaveTranslations|CoreErrorConstructorsAreCatalogued|CreateAndCancelSchedule|SessionLifecycleCommandIsIdempotentAndInterruptsAttempt)$' -count=1 -json",
+      "working_directory": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/notification-review-adaptations-sqlite-20260913.json",
+      "log_sha256": "15cc9bc447afb1f95a7f614522a761f44e91412cb523d4c14481ae81bbaf5509",
+      "top_level_counts": {
+        "pass": 4,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_and_skips": []
+    },
+    "postgres_review_adaptations": {
+      "command": "TEST_DB_DRIVER=postgres TEST_DB_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test ./common ./scheduler ./workflow/store -run 'Test(ErrorCatalogCodesHaveTranslations|CoreErrorConstructorsAreCatalogued|CreateAndCancelSchedule|SessionLifecycleCommandIsIdempotentAndInterruptsAttempt)$' -count=1 -json",
+      "working_directory": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/notification-review-adaptations-pg-20260913.json",
+      "log_sha256": "958d6d5583fb347a6d49601e14963be1ae73a7d1ff8727655795edfa399a3b89",
+      "top_level_counts": {
+        "pass": 4,
+        "fail": 0,
+        "skip": 0
+      },
+      "failures_and_skips": []
+    },
+    "core_full": {
+      "command": "TEST_DB_DRIVER=sqlite MIGRATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test ./... -count=1 -json",
+      "working_directory": "/Users/zouyu/Downloads/LazyMind-notifications/backend/core",
+      "log": "/tmp/notification-core-full-20260913.json",
+      "log_sha256": "6f28d1011ad1555df29b93e2fcdc9f5d9b5aef54c19ec20e7822949e0bfa611a",
+      "top_level_counts": {
+        "pass": 2499,
+        "fail": 1,
+        "skip": 8
+      },
+      "failures_and_skips": [
+        {
+          "package": "lazymind/core",
+          "test": "TestRunNotificationFixtureProcess",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestOrganizerBrowserFixture",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/capability/mcp",
+          "test": "TestRealLazyMindMCP",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/asyncjob",
+          "test": "TestRunnerRecoversLeaseThatExpiresAfterStartup",
+          "status": "fail"
+        },
+        {
+          "package": "lazymind/core/currentmemory",
+          "test": "TestCurrentMemoryPostgresContract",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/episode",
+          "test": "TestPostgresFTSCandidateContract",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/chat",
+          "test": "TestOpeningRealModelDescription",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/chat",
+          "test": "TestRedisCancelWatcherReleasesConnections",
+          "status": "skip"
+        },
+        {
+          "package": "lazymind/core/vocabulary",
+          "test": "TestAnkiClientLocalIntegration",
+          "status": "skip"
+        }
+      ]
+    },
+    "e2e": {
+      "command": "PGGSSENCMODE=disable PYTHONPATH=backend/channel-gateway NOTIFICATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres /tmp/lazymind-notification-tests-venv/bin/python -m pytest backend/channel-gateway/tests/notifications/test_notification_e2e.py -q --tb=short",
+      "working_directory": "/Users/zouyu/Downloads/LazyMind-notifications",
+      "log": "/tmp/notification-e2e-complete-20260913.txt",
+      "log_sha256": "266f15488a97d1f147d67ba7db073f8738185f9a35bd363c9040fd4f51e98262",
+      "summary": "22 passed, 6 warnings in 75.07s (0:01:15)"
+    },
+    "final_sdk_and_recovery": {
+      "command": "PGGSSENCMODE=disable PYTHONPATH=backend/channel-gateway NOTIFICATION_TEST_POSTGRES_DSN=postgresql://postgres@127.0.0.1:32768/postgres /tmp/lazymind-notification-tests-venv/bin/python -m pytest backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py backend/channel-gateway/tests/notifications/test_notification_recovery.py -q --tb=short",
+      "working_directory": "/Users/zouyu/Downloads/LazyMind-notifications",
+      "log": "/tmp/notification-sdk-recovery-final-20260913.txt",
+      "log_sha256": "8d9bb878fe99aae99400404fa104f06b578beaa219efa64498b9224175ca0acd",
+      "summary": "16 passed, 4 warnings in 15.15s"
+    },
+    "additional_runtime_checks": {
+      "method": "One-off verification invokes the existing gateway/core_boundary/gateway_dsn fixtures and approved SDK rejection fixture, running the real worker cycle and HTTP retry routes. No committed test modified.",
+      "results": [
+        {
+          "database": "sqlite",
+          "scenario": "retry_only_rejected_artifact",
+          "result": "passed"
+        },
+        {
+          "database": "sqlite",
+          "scenario": "prior_lost_response_stays_unknown",
+          "result": "passed"
+        },
+        {
+          "database": "postgres",
+          "scenario": "retry_only_rejected_artifact",
+          "result": "passed"
+        },
+        {
+          "database": "postgres",
+          "scenario": "prior_lost_response_stays_unknown",
+          "result": "passed"
+        }
+      ],
+      "log_sha256": "a7fa7d714ff5b7ba1881beb99f8d2632bc091c93cc3e9796cd160d613f7ee4b3"
+    }
+  },
+  "verification_order": "178 gateway and 22 E2E pass before the final narrow guard preserving prior ambiguity; after that guard, all 16 SDK/recovery tests and 4 one-off dual-database recovery scenarios pass. Counts overlap. Full Core includes 47 migration tests; previous two-database Core 73/73 evidence retained because Core production code did not change this batch.",
+  "remaining_regression_failure": {
+    "test": "lazymind/core/asyncjob.TestRunnerRecoversLeaseThatExpiresAfterStartup",
+    "error": "unexpired startup lease was never recovered",
+    "baseline_reproduction": "/tmp/notification-unrelated-asyncjob-baseline.json",
+    "baseline": "44c4e038e645cbc3b0336b895ac092517084e11e",
+    "status": "Existing baseline failure, outside notification scope; no asyncjob changes"
+  },
+  "skip_reasons": {
+    "TestRunNotificationFixtureProcess": "Only invoked by E2E subprocess; complete E2E passed",
+    "TestOrganizerBrowserFixture": "Opt-in browser fixture",
+    "TestRealLazyMindMCP": "LAZYMIND_REAL_MCP_E2E not enabled",
+    "TestOpeningRealModelDescription": "Opt-in real model acceptance",
+    "TestCurrentMemoryPostgresContract": "CURRENT_MEMORY_POSTGRES_TEST_DSN not configured",
+    "TestRedisCancelWatcherReleasesConnections": "TEST_REDIS_URL not configured",
+    "TestPostgresFTSCandidateContract": "EPISODE_POSTGRES_TEST_DSN not configured",
+    "TestAnkiClientLocalIntegration": "ANKI_INTEGRATION / AnkiConnect not configured"
+  },
+  "production_files_in_this_batch": {
+    "backend/channel-gateway/channel_gateway/feishu/domain.py": "150088469a8867f3045edad2c23664d3630ee8d2f744389e534a29f87296367d",
+    "backend/channel-gateway/channel_gateway/feishu/sdk.py": "e55a3539d2a7d6c1f66f03839e920a532147dd9d0f5047d2d95b7d779c6cea54",
+    "backend/channel-gateway/channel_gateway/feishu/delivery.py": "8801ea6339b44872e5af7b7f807cefcf979371eacd616149d8b960c57041af07",
+    "backend/channel-gateway/channel_gateway/feishu/notifications.py": "0d87ec42474c7603591e433a76d0172303b906daf6929761ae79518d600a44fa",
+    "backend/channel-gateway/channel_gateway/common/application/workers.py": "30063f9b4acd93e86a8c0443c796a1f541aaa85b8a16d7d0aec4981caf2d7ef4"
+  },
+  "reviewed_test_files": {
+    "backend/channel-gateway/tests/notifications/test_notification_sdk_failures.py": "5fc93a53442d6bacdf8d42841e20c9ccb7085f10c52487a2afb937a7d1ff55d0",
+    "backend/core/scheduler/scheduler_test.go": "ceda440f953cb73fa4020dc5033244388d2a360880729a85a990298998a3057e",
+    "backend/core/workflow/store/host_session_test.go": "b1715bca1e31e2c78904d5855117ab626df5f2543e9c474d5c5ba0df0d21c859",
+    "backend/core/common/error_catalog_test.go": "f817520920c0952197b58a727b31b3c08b0e1e1e84b8813f696297134663c15c"
+  },
+  "applied_patch": {
+    "path": "integration-review-proposal.patch",
+    "sha256": "4b5fc521d092947207a7cf9c6436dd852c187e67335b25b15cd112ffb12a5266",
+    "reverse_apply_check": "passed",
+    "approved_sdk_test_unchanged": true
+  },
+  "static_checks": {
+    "flake8": "passed: all gateway production and notification tests, max-line-length=120",
+    "gofmt": "passed: modified/new Go files",
+    "diff_whitespace": "passed",
+    "scope": "all modified/untracked repository paths under backend/",
+    "api_contract": "No new HTTP route or response shape in this correction. Existing string part.error_code accepts documented FEISHU_SEND_REJECTED; 13 public permission declarations retained.",
+    "documentation": "passed: links, JSON and current production/reviewed-test file hashes"
+  },
+  "not_performed": [
+    "Live Feishu delivery",
+    "Directory-external deployment/proxy/contract/i18n integration",
+    "Commit or push"
+  ],
+  "dependency_warnings": "Existing anyio, lark and websockets deprecations; no dependency upgrade."
+}

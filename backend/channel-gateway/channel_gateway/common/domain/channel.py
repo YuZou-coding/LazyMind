@@ -133,7 +133,7 @@ class OutboundMessage:
     provider_context: dict[str, Any]
     text: str
     intent_kind: str
-    purpose: Literal['reply', 'welcome'] = 'reply'
+    purpose: Literal['reply', 'welcome', 'task_notification'] = 'reply'
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

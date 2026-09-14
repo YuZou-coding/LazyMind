@@ -88,6 +88,25 @@ func TestErrorCatalogCodesHaveTranslations(t *testing.T) {
 	if err := json.Unmarshal(data, &translations); err != nil {
 		t.Fatal(err)
 	}
+	backendTranslations := map[string]map[string]string{}
+	if err := json.Unmarshal(notificationErrorTranslationsJSON, &backendTranslations); err != nil {
+		t.Fatal(err)
+	}
+	for code, messages := range backendTranslations {
+		parsedCode, err := strconv.Atoi(code)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, locale := range []string{"zh-CN", "en-US"} {
+			if existing := translations[code][locale]; existing != "" && existing != messages[locale] {
+				t.Errorf("conflicting translation for %s/%s", code, locale)
+			}
+			if got := NotificationErrorMessage(parsedCode, locale, ""); got != messages[locale] {
+				t.Errorf("backend response translation differs for %s/%s", code, locale)
+			}
+		}
+		translations[code] = messages
+	}
 	for key, appErr := range errorCatalog {
 		assertCatalogTranslations(t, translations, key, appErr)
 	}

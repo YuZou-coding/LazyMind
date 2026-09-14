@@ -3,9 +3,9 @@ package main
 func manualOpenAPISpec() map[string]any {
 	return map[string]any{
 		"components": map[string]any{
-			"schemas": forkOpenAPISchemas(manualSchemas()),
+			"schemas": notificationOpenAPISchemas(forkOpenAPISchemas(manualSchemas())),
 		},
-		"paths": forkOpenAPIPaths(manualPaths()),
+		"paths": notificationOpenAPIPaths(forkOpenAPIPaths(manualPaths())),
 	}
 }
 

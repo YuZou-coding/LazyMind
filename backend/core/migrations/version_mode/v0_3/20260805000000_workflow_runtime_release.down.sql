@@ -1,3 +1,18 @@
+-- +migrate Dialect postgres
+DROP TABLE task_notification_deliveries;
+DROP TABLE task_notification_events;
+DROP TABLE task_notification_snapshots;
+DROP TABLE schedule_notification_rules;
+DROP TABLE notification_settings;
+
+-- +migrate Dialect sqlite
+DROP TABLE task_notification_deliveries;
+DROP TABLE task_notification_events;
+DROP TABLE task_notification_snapshots;
+DROP TABLE schedule_notification_rules;
+DROP TABLE notification_settings;
+
+-- +migrate Dialect *
 DROP TABLE IF EXISTS conversation_fork_requests;
 DROP TABLE IF EXISTS conversation_fork_origins;
 DROP INDEX IF EXISTS idx_vocabulary_review_session_word;
@@ -252,8 +267,7 @@ DROP INDEX IF EXISTS idx_chat_histories_algorithm_create_time;
 ALTER TABLE chat_histories DROP COLUMN algorithm_id;
 DROP INDEX IF EXISTS idx_plugin_drafts_user_trash;
 DROP INDEX IF EXISTS idx_plugin_drafts_user_plugin_id;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_drafts_user_plugin_id
-    ON plugin_drafts(created_by, plugin_id) WHERE plugin_id != '';
+CREATE UNIQUE INDEX `idx_plugin_drafts_user_plugin_id` ON `plugin_drafts`(`created_by`,`plugin_id`) WHERE plugin_id != '';
 ALTER TABLE task_center_tasks DROP COLUMN archived_reason;
 ALTER TABLE skills DROP COLUMN trash_expires_at;
 ALTER TABLE plugin_drafts DROP COLUMN published_status_before_trash;
@@ -316,18 +330,11 @@ ALTER TABLE plugin_sessions DROP COLUMN origin_host;
 ALTER TABLE user_plugin_settings DROP COLUMN call_mode;
 ALTER TABLE user_chat_settings DROP COLUMN quick_question_defaults;
 ALTER TABLE user_chat_settings DROP COLUMN new_task_defaults;
-CREATE TABLE IF NOT EXISTS user_chat_settings_next (
-    user_id varchar(255),
-    enable_plugin numeric NOT NULL DEFAULT true,
-    plugin_mode varchar(16) NOT NULL DEFAULT "dynamic",
-    enable_subagent numeric NOT NULL DEFAULT true,
-    updated_at datetime NOT NULL,
-    PRIMARY KEY (user_id)
-);
-DELETE FROM user_chat_settings_next;
-INSERT INTO user_chat_settings_next SELECT * FROM user_chat_settings;
-DROP TABLE user_chat_settings;
-ALTER TABLE user_chat_settings_next RENAME TO user_chat_settings;
+ALTER TABLE user_chat_settings RENAME TO user_chat_settings_previous;
+CREATE TABLE `user_chat_settings` (`user_id` varchar(255),`enable_plugin` numeric NOT NULL DEFAULT true,`plugin_mode` varchar(16) NOT NULL DEFAULT "dynamic",`enable_subagent` numeric NOT NULL DEFAULT true,`updated_at` datetime NOT NULL,PRIMARY KEY (`user_id`));
+INSERT INTO user_chat_settings(user_id,enable_plugin,plugin_mode,enable_subagent,updated_at)
+    SELECT user_id,enable_workflow,plugin_mode,enable_subagent,updated_at FROM user_chat_settings_previous;
+DROP TABLE user_chat_settings_previous;
 
 -- +migrate Dialect postgres
 DROP INDEX IF EXISTS public.idx_knowledge_market_installs_user;
@@ -410,10 +417,8 @@ WHERE id IN (
         WHERE trashed.deleted_at IS NOT NULL
     ) AS relative_root_conflicts
 );
-CREATE UNIQUE INDEX uk_skills_owner_identity
-    ON skills(owner_user_id, category, skill_name);
-CREATE UNIQUE INDEX uk_skills_owner_relative_root
-    ON skills(owner_user_id, relative_root);
+CREATE UNIQUE INDEX `uk_skills_owner_identity` ON `skills`(`owner_user_id`,`category`,`skill_name`);
+CREATE UNIQUE INDEX `uk_skills_owner_relative_root` ON `skills`(`owner_user_id`,`relative_root`);
 
 -- +migrate Dialect postgres
 DROP INDEX IF EXISTS public.uniq_active_preference_organizer;

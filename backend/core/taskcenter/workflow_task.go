@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 	"lazymind/core/common/orm"
+	"lazymind/core/notifications"
 )
 
 // EnsureWorkflowTask joins a newly created session to its running trigger, or
@@ -91,15 +92,31 @@ func workflowTaskStatus(status string) string {
 	switch status {
 	case "active":
 		return "running"
-	case "waiting":
+	case "waiting", "stopped":
 		return "waiting"
 	case "completed":
 		return "succeeded"
 	case "failed":
 		return "failed"
-	case "stopped", "cancelled", "canceled":
+	case "cancelled", "canceled":
 		return "canceled"
 	default:
 		return ""
 	}
+}
+
+// SyncWorkflowStatus is part of the session writer's transaction. A workflow
+// completion alone is not a durable scheduled result: its finalizer must store
+// the answer and artifacts before publishing success.
+func SyncWorkflowStatus(ctx context.Context, db *gorm.DB, sessionID, status string) error {
+	if status == "completed" {
+		return nil
+	}
+	taskStatus := workflowTaskStatus(status)
+	if taskStatus == "" {
+		return nil
+	}
+	return notifications.Transact(ctx, db, func(tx *gorm.DB) error {
+		return UpdateTaskStatusBySession(ctx, tx, sessionID, taskStatus)
+	})
 }

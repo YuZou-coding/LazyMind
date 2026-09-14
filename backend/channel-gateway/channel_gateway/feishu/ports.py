@@ -374,7 +374,8 @@ class FeishuOutboundClient(Protocol):
         content: bytes,
         caption: str,
         idempotency_key: str,
-    ) -> None:
+        receive_id_type: str = 'chat_id',
+    ) -> str:
         ...
 
     def upload_image(self, *, content: bytes) -> str:
@@ -412,7 +413,8 @@ class FeishuOutboundClient(Protocol):
         content: bytes,
         filename: str,
         idempotency_key: str,
-    ) -> None:
+        receive_id_type: str = 'chat_id',
+    ) -> str:
         ...
 
     def start_card_stream(

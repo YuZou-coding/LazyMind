@@ -25,6 +25,8 @@ _ADDONS = {
     'scopes': {
         'tenant': [
             'im:message:send_as_bot',
+            'im:chat:read',
+            'im:chat.members:read',
             'im:message.p2p_msg:readonly',
             'im:resource',
             'cardkit:card:write',
@@ -253,6 +255,7 @@ class LarkAppRegistrar:
                 or user_info.get('display_name')
                 or ''
             ).strip(),
+            avatar_url=str(user_info.get('avatar_url') or '').strip(),
             tenant_key=str(
                 user_info.get('tenant_key')
                 or result.get('tenant_key')

@@ -1,0 +1,211 @@
+{
+  "date": "2026-09-11",
+  "phase": "implementation_paused_for_e2e_fixture_review",
+  "tests_changed": false,
+  "e2e_fixture_correction_applied": false,
+  "verification": {
+    "notification-core-worker-phase2.json": {
+      "counts": {
+        "pass": 29,
+        "fail": 0,
+        "skip": 0
+      },
+      "cases": [
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationScheduledAndDependencyDispatchPersistSuccessEvents",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerDoesNotTurnPausedRunIntoSuccess",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerPreservesCancellationAndFailure",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerCannotSucceedWhenOutputWriteFails",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerPreservesWholeVisibleAnswer",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerKeepsVisibleArtifacts",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDefaultsAreSafeAndPersisted",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDefaultsOnlyApplyToNewSchedulesAndReset",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRuleRetainsDisabledSelectionsAndMultipleTargets",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRejectsInvalidRules",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGlobalDefaultsMustKeepOneEvent",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationConcurrentRuleWritersHaveOneWinner",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGatewayValidationFailsClosed",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationUnsupportedProviderDoesNotBecomeSendable",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationForeignScheduleAndTaskAreHidden",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationPauseEpisodesAndExecutionSnapshot",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationNonEventsDoNotNotify",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationTransactionRollbackDoesNotPublishEvent",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDisableImpactRequiresFreshConfirmation",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationInternalAuthorizationRejectsMissingCredentials",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRoutesHaveOpenAPIContracts",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationLegacyEditDoesNotClearRule",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationCreateAndBatchPersistExplicitRules",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationFailureIsDeduplicatedAndSafe",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDisabledEventDoesNotCreateHistory",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationEventInsertFailureRollsBackTaskStatus",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGlobalDisableConfirmAndReenableRetainConfiguration",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationAnonymousSettingsCannotBecomeDefaultUserSettings",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestOpenAPISpecCoversAllRegisteredRoutes",
+          "result": "pass"
+        }
+      ]
+    },
+    "notification-migrations-phase2.json": {
+      "counts": {
+        "pass": 2,
+        "fail": 1,
+        "skip": 0
+      },
+      "cases": [
+        {
+          "package": "lazymind/core/migrate",
+          "test": "TestNotificationMigrationPairsExist",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/migrate",
+          "test": "TestNotificationMigrationUpgradeDownAndDataPreservation",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/migrate",
+          "test": "TestNotificationMigrationAggregateMatchesDevAndRollsBack",
+          "result": "fail"
+        }
+      ]
+    },
+    "notification-gateway-phase2.txt": {
+      "result": "138 passed, 4 warnings in 138.48s (0:02:18)",
+      "has_unhandled_thread_warning": false
+    },
+    "notification-gateway-regression-phase2.txt": {
+      "result": "36 passed, 7 warnings in 32.87s",
+      "has_unhandled_thread_warning": true
+    },
+    "notification-reconnect-cleanup-phase2.txt": {
+      "result": "5 passed, 23 deselected, 4 warnings in 6.18s",
+      "has_unhandled_thread_warning": false
+    },
+    "notification-e2e-phase2.txt": {
+      "result": "1 failed, 2 passed, 6 warnings in 11.60s",
+      "has_unhandled_thread_warning": false
+    }
+  },
+  "remaining": [
+    "SQLite v0.3 aggregate/dev schema differences",
+    "E2E fixture incorrectly references created_at/updated_at",
+    "Core/gateway full end-to-end delivery not verified",
+    "Complete OpenAPI source schemas and permission extraction",
+    "Artifact snapshot details and remaining task lifecycle call sites",
+    "Runtime/deployment handoff and final regressions"
+  ],
+  "all_approved_tests_unchanged": true
+}

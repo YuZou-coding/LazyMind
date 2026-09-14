@@ -142,7 +142,7 @@ func TestListExternalSessionsIsOwnerScopedAndCursorPaged(t *testing.T) {
 
 func TestSessionLifecycleCommandIsIdempotentAndInterruptsAttempt(t *testing.T) {
 	repo := testRepo(t)
-	if err := repo.db.AutoMigrate(&orm.WorkflowSession{}, &orm.WorkflowSessionStep{}, &orm.WorkflowOutbox{}); err != nil {
+	if err := repo.db.AutoMigrate(&orm.WorkflowSession{}, &orm.WorkflowSessionStep{}, &orm.WorkflowOutbox{}, &orm.TaskCenterTask{}); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC()

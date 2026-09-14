@@ -1,0 +1,377 @@
+{
+  "date": "2026-09-11",
+  "branch": "codex/feishu-task-notifications",
+  "scope": "backend/ only",
+  "phase": "implementation_paused_for_workflow_test_review",
+  "e2e_fixture_correction": {
+    "authorized": true,
+    "applied": true,
+    "file": "backend/channel-gateway/tests/notifications/test_notification_e2e.py",
+    "change": "chat_histories INSERT uses create_time/update_time",
+    "sha256": "b459580271f5c78108e8f2fb391f64e3a768a67c9cdad7b0a32dd8154735c2ae",
+    "result": "22 passed, 6 dependency deprecation warnings; real Core/gateway with fake Feishu and model, SQLite and PostgreSQL"
+  },
+  "verification": {
+    "notification_migrations": {
+      "command": "MIGRATION_TEST_POSTGRES_DSN=<isolated-test-DSN> go test ./migrate -run '^TestNotification' -count=1 -json",
+      "cwd": "backend/core",
+      "counts": {
+        "pass": 3
+      },
+      "cases": [
+        {
+          "test": "TestNotificationMigrationPairsExist",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationMigrationUpgradeDownAndDataPreservation",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationMigrationAggregateMatchesDevAndRollsBack",
+          "result": "pass"
+        }
+      ],
+      "failures": []
+    },
+    "migration_regression": {
+      "command": "MIGRATION_TEST_POSTGRES_DSN=<isolated-test-DSN> go test ./migrate -count=1 -json",
+      "cwd": "backend/core",
+      "counts": {
+        "pass": 46,
+        "fail": 1
+      },
+      "cases": [
+        {
+          "test": "TestConversationOpeningMigrationRoundTrip",
+          "result": "pass"
+        },
+        {
+          "test": "TestMigrationSQLForDriver",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositoryMigrationsSupportPostgresAndSQLite",
+          "result": "pass"
+        },
+        {
+          "test": "TestMigrationSQLWithoutDialectIsPortable",
+          "result": "pass"
+        },
+        {
+          "test": "TestBenignSQLiteColumnChangeError",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositoryStructuredMigrationCatalogLoads",
+          "result": "fail"
+        },
+        {
+          "test": "TestParseReleaseVersionUsesV0MinorVersion",
+          "result": "pass"
+        },
+        {
+          "test": "TestVersionModeRejectsMultipleAggregateMigrations",
+          "result": "pass"
+        },
+        {
+          "test": "TestVersionModeRejectsMigrationOutsideReleaseDirectory",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerPrefersDevForUntouchedMode",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerRepairsMixedAggregateHistoryAndAppliesPostAggregateDev",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerExecutesVersionModesInReleaseOrder",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerContinuesPartialDevModeAndKeepsHistory",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerRecognizesCompleteArchivedDevHistory",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerTreatsAnyArchivedDevHistoryAsCompletedDevPath",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerSkipsOlderDevAfterAggregate",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerAllowsDifferentModesToUseDifferentSources",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerRejectsDeletedPartialDevMigrationBeforeAggregateSQL",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerReconcilesUnknownMigrationFromOpenDevMode",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerDoesNotReconcileUnknownDevHistoryWithoutKnownDevPath",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerRejectsMixedAggregateAndDevHistoryForSameMode",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationMigrationPairsExist",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationMigrationUpgradeDownAndDataPreservation",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationMigrationAggregateMatchesDevAndRollsBack",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositoryPostgresMigrationPaths",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositorySQLiteReleaseAndDevPathsMatch",
+          "result": "pass"
+        },
+        {
+          "test": "TestManagedExternalBindingMigrationBackfillsOwnership",
+          "result": "pass"
+        },
+        {
+          "test": "TestExternalBindingProviderScopeMigration",
+          "result": "pass"
+        },
+        {
+          "test": "TestFixTaskCenterWorkflowRunsMigrationBackfillsLifecycle",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositorySQLiteFreshAndUpgradePaths",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositorySQLiteAddsAcceptedUserAgreementColumnOnUpgrade",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositorySQLiteExistingAggregateAppliesUncoveredAgreementMigration",
+          "result": "pass"
+        },
+        {
+          "test": "TestSchedulesFeatureControlMigrationPreservesLegacyPauseState",
+          "result": "pass"
+        },
+        {
+          "test": "TestChatEntryDefaultsMigrationPreservesLegacySettings",
+          "result": "pass"
+        },
+        {
+          "test": "TestSkillUniqueIndexSQLiteDownRemovesTrashedDuplicates",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositorySQLiteRunsLaterVersionedMigrations",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositorySQLiteDownContinuesPastPostAggregateRelationColumns",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunUpAppliesMissingLowerVersionMigrationAfterManualHistoryBackfill",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerAppliesLateMergedMigrationAfterHistoryBootstrap",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerDownAllowsInitialMigrationToDropHistoryTable",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerCanonicalizesSquashMigrationAndContinuesWithLaterMigration",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerExecutesSquashMigrationOnNewDatabase",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerRejectsPartiallyAppliedSquashMigration",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerRejectsUnexpectedAppliedMigrationWithoutFile",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerRejectsSquashWhileSupersededFilesRemain",
+          "result": "pass"
+        },
+        {
+          "test": "TestRunnerDownAfterCanonicalizedSquashUsesAggregateDownMigration",
+          "result": "pass"
+        },
+        {
+          "test": "TestParseSupersedesDirective",
+          "result": "pass"
+        }
+      ],
+      "failures": [
+        "mode_test.go:106: v0_3 dev migration count=67, want 66"
+      ]
+    },
+    "workflow_review_sqlite": {
+      "command": "go test . -run '^TestNotificationWorkflow' -count=1 -json",
+      "cwd": "backend/core",
+      "counts": {
+        "fail": 3,
+        "pass": 1
+      },
+      "cases": [
+        {
+          "test": "TestNotificationWorkflowStopResumeThroughHTTP",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationWorkflowEnginePauseAndFailure",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationWorkflowStopRollsBackIfEventCannotPersist",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationWorkflowTerminalCancellationDoesNotPause",
+          "result": "pass"
+        }
+      ],
+      "failures": [
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 2",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 2",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"failed\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 3",
+        "notification_workflow_lifecycle_test.go:117: workflow notification events = map[]",
+        "notification_workflow_lifecycle_test.go:135: stop without durable event succeeded: HTTP 200",
+        "notification_workflow_lifecycle_test.go:142: rollback retained workflow mutation: status=stopped version=2",
+        "notification_workflow_lifecycle_test.go:144: visible task status = \"canceled\", want \"running\"",
+        "notification_workflow_lifecycle_test.go:150: failed stop retained a completed idempotent command"
+      ]
+    },
+    "workflow_review_postgres": {
+      "command": "TEST_DB_DRIVER=postgres TEST_DB_DSN=<isolated-test-DSN> go test . -run '^TestNotificationWorkflow' -count=1 -json",
+      "cwd": "backend/core",
+      "counts": {
+        "fail": 3,
+        "pass": 1
+      },
+      "cases": [
+        {
+          "test": "TestNotificationWorkflowStopResumeThroughHTTP",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationWorkflowEnginePauseAndFailure",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationWorkflowStopRollsBackIfEventCannotPersist",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationWorkflowTerminalCancellationDoesNotPause",
+          "result": "pass"
+        }
+      ],
+      "failures": [
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:88: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: visible task status = \"canceled\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:88: notification count = 0, want 2",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 1",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"waiting\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 2",
+        "notification_workflow_lifecycle_test.go:110: stored task status = \"running\", want \"failed\"",
+        "notification_workflow_lifecycle_test.go:110: notification count = 0, want 3",
+        "notification_workflow_lifecycle_test.go:117: workflow notification events = map[]",
+        "notification_workflow_lifecycle_test.go:135: stop without durable event succeeded: HTTP 200",
+        "notification_workflow_lifecycle_test.go:142: rollback retained workflow mutation: status=stopped version=2",
+        "notification_workflow_lifecycle_test.go:144: visible task status = \"canceled\", want \"running\"",
+        "notification_workflow_lifecycle_test.go:150: failed stop retained a completed idempotent command"
+      ]
+    }
+  },
+  "new_tests": {
+    "path": "backend/core/notification_workflow_lifecycle_test.go",
+    "sha256": "1a29ca40c2be1b7b8b6e264e17f397da5ffc461b9a7ca291d0f5276ee1256ffd",
+    "production_lifecycle_changes_implemented": false,
+    "expected_failure_cases": 3,
+    "passing_case": "terminal cancellation remains canceled and emits no pause"
+  },
+  "existing_test_correction": {
+    "patch": "workflow-review-proposal.patch",
+    "applied": false,
+    "changes": [
+      "stopped workflow task projection expected waiting instead of canceled",
+      "migration catalog count 66 -> 67 and require notification migration timestamp"
+    ]
+  },
+  "restrictions": {
+    "committed": false,
+    "pushed": false,
+    "real_feishu_sent": false,
+    "outside_backend_modified": false,
+    "merged_dev_migrations_modified": false
+  },
+  "previously_reviewed_test_changes_from_initial_baseline": [
+    "backend/channel-gateway/tests/notifications/test_notification_e2e.py",
+    "backend/core/notification_api_test.go",
+    "backend/core/scheduler/notification_lifecycle_test.go"
+  ],
+  "previous_changes_authorized": true
+}

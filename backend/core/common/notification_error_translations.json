@@ -1,0 +1,26 @@
+{
+  "2002701": {
+    "zh-CN": "通知配置无效",
+    "en-US": "Invalid notification configuration"
+  },
+  "2002702": {
+    "zh-CN": "通知配置已更新，请刷新后重试",
+    "en-US": "Notification configuration or state changed. Refresh and try again."
+  },
+  "2002705": {
+    "zh-CN": "该渠道暂不支持任务通知",
+    "en-US": "This channel does not support task notifications."
+  },
+  "2002706": {
+    "zh-CN": "通知关闭影响已变化，请重新确认",
+    "en-US": "The impact of disabling notifications changed. Review it again."
+  },
+  "2002707": {
+    "zh-CN": "发送结果未知，重试可能重复，请确认后继续",
+    "en-US": "The delivery result is unknown. Confirm possible duplicates before retrying."
+  },
+  "2002710": {
+    "zh-CN": "暂时无法验证通知目标，请稍后重试",
+    "en-US": "Notification targets cannot be verified right now. Try again later."
+  }
+}

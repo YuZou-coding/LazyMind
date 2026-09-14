@@ -12,7 +12,9 @@ import (
 	"gorm.io/gorm"
 	"lazymind/core/common"
 	"lazymind/core/common/orm"
+	"lazymind/core/notifications"
 	"lazymind/core/store"
+	"lazymind/core/taskcenter"
 	"lazymind/core/workflow/executor"
 	"lazymind/core/workflow/graphengine"
 )
@@ -356,5 +358,10 @@ func reconcileSessionProjection(ctx context.Context, db *gorm.DB, session *orm.W
 		"state_version": gorm.Expr("state_version + 1"),
 		"updated_at":    time.Now().UTC(),
 	}
-	return db.WithContext(ctx).Model(&orm.WorkflowSession{}).Where("id = ?", session.ID).Updates(updates).Error
+	return notifications.Transact(ctx, db, func(tx *gorm.DB) error {
+		if err := tx.Model(&orm.WorkflowSession{}).Where("id = ?", session.ID).Updates(updates).Error; err != nil {
+			return err
+		}
+		return taskcenter.SyncWorkflowStatus(ctx, tx, session.ID, status)
+	})
 }

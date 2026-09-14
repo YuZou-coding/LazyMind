@@ -16,6 +16,8 @@ import (
 
 	"lazymind/core/common"
 	"lazymind/core/common/orm"
+	"lazymind/core/notifications"
+	"lazymind/core/taskcenter"
 )
 
 // Session status constants. Interrupted attempts remain resumable as waiting, while
@@ -247,8 +249,9 @@ func healStaleActiveSession(ctx context.Context, db *gorm.DB, s *orm.WorkflowSes
 	}
 
 	// No genuinely running steps → flip session to waiting.
-	db.WithContext(ctx).Model(s).
-		Updates(map[string]any{"status": SessionStatusWaiting, "updated_at": now})
+	if err := UpdateSessionStatus(ctx, db, s.ID, SessionStatusWaiting); err != nil {
+		return
+	}
 	s.Status = SessionStatusWaiting
 	fmt.Printf("[plugin] healStaleActiveSession: session %s repaired active→waiting (orphans=%d)\n",
 		s.ID, orphansFixed)
@@ -290,12 +293,14 @@ func ListDismissedSessions(ctx context.Context, db *gorm.DB, conversationID stri
 
 // UpdateSessionStatus transitions a session to a new status.
 func UpdateSessionStatus(ctx context.Context, db *gorm.DB, sessionID, status string) error {
-	return db.WithContext(ctx).Model(&orm.WorkflowSession{}).
-		Where("id = ?", sessionID).
-		Updates(map[string]any{
-			"status":     status,
-			"updated_at": time.Now().UTC(),
-		}).Error
+	return notifications.Transact(ctx, db, func(tx *gorm.DB) error {
+		result := tx.Model(&orm.WorkflowSession{}).Where("id = ?", sessionID).
+			Updates(map[string]any{"status": status, "updated_at": time.Now().UTC()})
+		if result.Error != nil || result.RowsAffected == 0 {
+			return result.Error
+		}
+		return taskcenter.SyncWorkflowStatus(ctx, tx, sessionID, status)
+	})
 }
 
 // UpdateSessionCurrentStep updates current_step_id for a session.

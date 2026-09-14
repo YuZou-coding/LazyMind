@@ -32,6 +32,7 @@ import (
 	"lazymind/core/log"
 	"lazymind/core/migrate"
 	"lazymind/core/modelprovider"
+	"lazymind/core/notifications"
 	"lazymind/core/recovery"
 	"lazymind/core/resourceupdate"
 	"lazymind/core/scheduler"
@@ -593,6 +594,7 @@ func run(ctx context.Context) error {
 	// Start the schedule ticker.
 	if startBackgroundJobs {
 		backgroundDone = append(backgroundDone, scheduler.RunScheduler(runtimeCtx, store.DB(), ""))
+		backgroundDone = append(backgroundDone, notifications.Run(runtimeCtx, store.DB()))
 	}
 
 	r := mux.NewRouter()

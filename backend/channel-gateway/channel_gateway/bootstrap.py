@@ -1,11 +1,13 @@
 import os
 from dataclasses import dataclass, field
+from typing import Any
 
 from channel_gateway.common.application.providers import (
     AccountApplicationService,
     AccountRuntimeSupervisor,
     ConnectionApplicationService,
 )
+from channel_gateway.common.application.notifications import NotificationService
 from channel_gateway.common.application.actions import ChannelActionExecutor
 from channel_gateway.common.application.intents import (
     ExactShortcutParser,
@@ -37,6 +39,7 @@ from channel_gateway.common.ports.messaging import (
 )
 from channel_gateway.feishu.connection import FeishuConnectionService
 from channel_gateway.feishu.domain import FeishuAddressFactory
+from channel_gateway.common.ports.providers import TaskNotificationAdapter
 from channel_gateway.feishu.delivery import FeishuDeliveryProvider
 from channel_gateway.feishu.receiver import LarkChannelFactory
 from channel_gateway.feishu.registration import LarkAppRegistrar
@@ -98,6 +101,7 @@ class ProviderComponents:
     accounts: AccountAdapter
     delivery: DeliveryProvider
     streaming: ReplyStreamProvider | None = None
+    notifications: TaskNotificationAdapter | None = None
 
 
 class ProviderRegistry:
@@ -133,6 +137,14 @@ class ProviderRegistry:
         provider = self._provider(name)
         return provider.delivery if provider else None
 
+    def notifications(self, name: str) -> TaskNotificationAdapter | None:
+        provider = self._provider(name)
+        return provider.notifications if provider else None
+
+    def notification_capabilities(self) -> list[dict[str, Any]]:
+        return [{'provider': name, **provider.notifications.notification_capabilities()}
+                for name, provider in self._providers.items() if provider.notifications is not None]
+
     def streaming(self, name: str) -> ReplyStreamProvider | None:
         provider = self._provider(name)
         return provider.streaming if provider else None
@@ -151,6 +163,7 @@ class GatewayComponents:
     message_worker: MessageWorker
     delivery_worker: DeliveryWorker
     runtime_supervisors: tuple[RuntimeSupervisor, ...]
+    notifications: NotificationService
 
     def start(self) -> None:
         self.store.initialize()
@@ -295,6 +308,7 @@ def build_components(settings: Settings | None = None) -> GatewayComponents:
             accounts=feishu_accounts,
             delivery=feishu_delivery,
             streaming=feishu_delivery,
+            notifications=feishu_delivery,
         ),
     )
     executor = ChannelActionExecutor(
@@ -314,9 +328,12 @@ def build_components(settings: Settings | None = None) -> GatewayComponents:
         messages=messages,
         streams=providers,
     )
+    notifications = NotificationService(store=store, providers=providers,
+                                        core_base_url=resolved_settings.core_base_url)
     delivery_worker = DeliveryWorker(
         store=store,
         providers=providers,
+        notifications=notifications,
     )
     wechat_accounts = AccountRuntimeSupervisor(
         provider='wechat',
@@ -340,6 +357,7 @@ def build_components(settings: Settings | None = None) -> GatewayComponents:
         ),
         message_worker=message_worker,
         delivery_worker=delivery_worker,
+        notifications=notifications,
         runtime_supervisors=(
             wechat_accounts,
             wechat_connections,

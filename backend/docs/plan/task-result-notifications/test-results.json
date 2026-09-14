@@ -1,0 +1,1435 @@
+{
+  "date": "2026-09-10",
+  "baseline": "44c4e038e645cbc3b0336b895ac092517084e11e",
+  "phase": "tests_only_awaiting_review",
+  "production_implemented": false,
+  "runtime": {
+    "python": "3.12.14",
+    "go": "1.27.0 darwin/arm64",
+    "postgres": "16",
+    "sqlite": "file"
+  },
+  "test_file_sha256": {
+    "backend/channel-gateway/tests/notifications/conftest.py": "c3ba4de756f59406215a203ecfd35383f83c76a3d678b721658e0b3268544e0b",
+    "backend/channel-gateway/tests/notifications/test_notification_accounts.py": "2a3bab05700f9e5424002eabe287d80a4df67b0bb10513abd1dc944971e9a823",
+    "backend/channel-gateway/tests/notifications/test_notification_api.py": "c5b422bcd0740718b5c174ee8814eeaebc80510491943bc635a7d93b6d4bf97b",
+    "backend/channel-gateway/tests/notifications/test_notification_content.py": "5cb9477d6a6c90bd07e3dbd7c0f98542f5a6eb11bfb7b85ad3cb98363721f849",
+    "backend/channel-gateway/tests/notifications/test_notification_delivery.py": "2740f7b5ad93cfb7e028b0774a2710090e64b7005844001a2f81fc4b8fa17f19",
+    "backend/channel-gateway/tests/notifications/test_notification_e2e.py": "69ffda097b80f13080ed3d3a7e922d47e2d7dfee30584c223def8b234913ff3b",
+    "backend/channel-gateway/tests/notifications/test_notification_protocol.py": "3bcfc40eaf0948a58061a63d19bc19ffb270164f36d196ff09b7adb8b3186991",
+    "backend/channel-gateway/tests/notifications/test_notification_recovery.py": "921b842d241f1cc7e1a6b8b41ebc6ae4331728244561f406665eefca6e892f1d",
+    "backend/channel-gateway/tests/notifications/test_notification_reply_regression.py": "8c96d0a93efc9af1a6b2179af6251de963fc3c4081e541c7f24160ba552c4ff6",
+    "backend/core/migrate/notification_migration_test.go": "5c052bdc5c1a4ac867e180257a5ee1f0e7fb27e022942d435957c779c2376025",
+    "backend/core/notification_api_test.go": "1dc935cd104e963e9a0ea78513e22f5d1c00fd5fd4dc9ea5390505907bd6ffd5",
+    "backend/core/notification_process_fixture_test.go": "b33526ab3011b4dd993503263c2e425e666884e6b5d6f5fcee4d468f4a1a0706",
+    "backend/core/scheduler/notification_lifecycle_test.go": "953342586a5bd65f1d0661fe156048bde80a9b612f7a24b3d1a904b829fa3fd9"
+  },
+  "go_top_level_suites": {
+    "core_sqlite": {
+      "counts": {
+        "fail": 26,
+        "pass": 2
+      },
+      "cases": [
+        {
+          "test": "TestNotificationScheduledAndDependencyDispatchPersistSuccessEvents",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerDoesNotTurnPausedRunIntoSuccess",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerPreservesCancellationAndFailure",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerCannotSucceedWhenOutputWriteFails",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerPreservesWholeVisibleAnswer",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationFinalizerKeepsVisibleArtifacts",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationDefaultsAreSafeAndPersisted",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationDefaultsOnlyApplyToNewSchedulesAndReset",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationRuleRetainsDisabledSelectionsAndMultipleTargets",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationRejectsInvalidRules",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationGlobalDefaultsMustKeepOneEvent",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationConcurrentRuleWritersHaveOneWinner",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationGatewayValidationFailsClosed",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationUnsupportedProviderDoesNotBecomeSendable",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationForeignScheduleAndTaskAreHidden",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationPauseEpisodesAndExecutionSnapshot",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationNonEventsDoNotNotify",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationTransactionRollbackDoesNotPublishEvent",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationDisableImpactRequiresFreshConfirmation",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationInternalAuthorizationRejectsMissingCredentials",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationRoutesHaveOpenAPIContracts",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationLegacyEditDoesNotClearRule",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationCreateAndBatchPersistExplicitRules",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFailureIsDeduplicatedAndSafe",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationDisabledEventDoesNotCreateHistory",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationEventInsertFailureRollsBackTaskStatus",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationGlobalDisableConfirmAndReenableRetainConfiguration",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationAnonymousSettingsCannotBecomeDefaultUserSettings",
+          "package": "lazymind/core",
+          "result": "fail"
+        }
+      ]
+    },
+    "core_postgres": {
+      "counts": {
+        "fail": 26,
+        "pass": 2
+      },
+      "cases": [
+        {
+          "test": "TestNotificationScheduledAndDependencyDispatchPersistSuccessEvents",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerDoesNotTurnPausedRunIntoSuccess",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerPreservesCancellationAndFailure",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationDefaultsAreSafeAndPersisted",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerCannotSucceedWhenOutputWriteFails",
+          "package": "lazymind/core/scheduler",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFinalizerPreservesWholeVisibleAnswer",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationFinalizerKeepsVisibleArtifacts",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestNotificationDefaultsOnlyApplyToNewSchedulesAndReset",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationRuleRetainsDisabledSelectionsAndMultipleTargets",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationRejectsInvalidRules",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationGlobalDefaultsMustKeepOneEvent",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationConcurrentRuleWritersHaveOneWinner",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationGatewayValidationFailsClosed",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationUnsupportedProviderDoesNotBecomeSendable",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationForeignScheduleAndTaskAreHidden",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationPauseEpisodesAndExecutionSnapshot",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationNonEventsDoNotNotify",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationTransactionRollbackDoesNotPublishEvent",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationDisableImpactRequiresFreshConfirmation",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationInternalAuthorizationRejectsMissingCredentials",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationRoutesHaveOpenAPIContracts",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationLegacyEditDoesNotClearRule",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationCreateAndBatchPersistExplicitRules",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationFailureIsDeduplicatedAndSafe",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationDisabledEventDoesNotCreateHistory",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationEventInsertFailureRollsBackTaskStatus",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationGlobalDisableConfirmAndReenableRetainConfiguration",
+          "package": "lazymind/core",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationAnonymousSettingsCannotBecomeDefaultUserSettings",
+          "package": "lazymind/core",
+          "result": "fail"
+        }
+      ]
+    },
+    "migration_notification_and_postgres_baseline": {
+      "counts": {
+        "fail": 3,
+        "pass": 1
+      },
+      "cases": [
+        {
+          "test": "TestNotificationMigrationPairsExist",
+          "package": "lazymind/core/migrate",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationMigrationUpgradeDownAndDataPreservation",
+          "package": "lazymind/core/migrate",
+          "result": "fail"
+        },
+        {
+          "test": "TestNotificationMigrationAggregateMatchesDevAndRollsBack",
+          "package": "lazymind/core/migrate",
+          "result": "fail"
+        },
+        {
+          "test": "TestRepositoryPostgresMigrationPaths",
+          "package": "lazymind/core/migrate",
+          "result": "pass"
+        }
+      ]
+    },
+    "migration_sqlite_baseline": {
+      "counts": {
+        "pass": 2
+      },
+      "cases": [
+        {
+          "test": "TestRepositorySQLiteReleaseAndDevPathsMatch",
+          "package": "lazymind/core/migrate",
+          "result": "pass"
+        },
+        {
+          "test": "TestRepositorySQLiteFreshAndUpgradePaths",
+          "package": "lazymind/core/migrate",
+          "result": "pass"
+        }
+      ]
+    },
+    "existing_core_regression": {
+      "counts": {
+        "pass": 14
+      },
+      "cases": [
+        {
+          "test": "TestCreateTask_And_CancelTask",
+          "package": "lazymind/core/taskcenter",
+          "result": "pass"
+        },
+        {
+          "test": "TestUpdateTaskFailurePersistsReasonAndTerminalState",
+          "package": "lazymind/core/taskcenter",
+          "result": "pass"
+        },
+        {
+          "test": "TestDependencyCollectionSnapshotsActualOutputsPerRun",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestDependencyCollectionWaitsForSameTickActualTask",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestDependencyWindowStartUsesLastSuccessfulNonDeletedRun",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestDependencyCollectionMaterializesHistoricalChatOutput",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestFinalizeTaskOutputStoresPlainChatAnswer",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestFinalizeTaskOutputStoresEmptyResultFailureReason",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestCreateTaskConversationPersistsHighThinkingDepth",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestFireSchedulesSkipsPausedSchedulesAndMovesNextRunForward",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestDependencyClaimAttemptFencesStaleOwner",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestDependencyClaimHeartbeatKeepsActiveClaimFresh",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestCreateScheduleRejectsBlankName",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "test": "TestFireOne_OptimisticLock",
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        }
+      ]
+    }
+  },
+  "python": {
+    "counts": {
+      "passed": 33,
+      "failure": 163
+    },
+    "cases": [
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_connection_expiry_refresh_and_cancel[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_connection_expiry_refresh_and_cancel[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_connection_failure_is_safe_and_keeps_existing_accounts[sqlite-error0]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_connection_failure_is_safe_and_keeps_existing_accounts[sqlite-error1]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_connection_failure_is_safe_and_keeps_existing_accounts[postgres-error0]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_connection_failure_is_safe_and_keeps_existing_accounts[postgres-error1]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_reconnect_same_identity_preserves_id[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_reconnect_same_identity_preserves_id[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_reconnect_cannot_replace_identity[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_reconnect_cannot_replace_identity[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_orphan_cleanup_still_removes_unregistered_account[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_orphan_cleanup_still_removes_unregistered_account[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_invalid_or_unavailable_recipient_is_not_saved[sqlite-FEISHU_SCOPE_REQUIRED]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_invalid_or_unavailable_recipient_is_not_saved[sqlite-FEISHU_CHAT_UNAVAILABLE]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_invalid_or_unavailable_recipient_is_not_saved[sqlite-FEISHU_PERMISSION_DENIED]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_invalid_or_unavailable_recipient_is_not_saved[postgres-FEISHU_SCOPE_REQUIRED]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_invalid_or_unavailable_recipient_is_not_saved[postgres-FEISHU_CHAT_UNAVAILABLE]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_invalid_or_unavailable_recipient_is_not_saved[postgres-FEISHU_PERMISSION_DENIED]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_unverified_person_cannot_receive[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_unverified_person_cannot_receive[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_registration_requests_group_read_scope",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_public_routes_declare_central_permissions[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_accounts",
+        "test": "test_notification_public_routes_declare_central_permissions[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_capabilities_only_feishu_is_sendable[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_capabilities_only_feishu_is_sendable[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_acceptance_is_durable_and_not_delivery_success[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_acceptance_is_durable_and_not_delivery_success[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_duplicate_handoff_has_one_business_record[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_duplicate_handoff_has_one_business_record[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_same_identity_with_changed_content_is_rejected[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_same_identity_with_changed_content_is_rejected[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_internal_routes_require_service_identity[sqlite-]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_internal_routes_require_service_identity[sqlite-wrong]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_internal_routes_require_service_identity[postgres-]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_internal_routes_require_service_identity[postgres-wrong]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_missing_configured_internal_token_fails_closed[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_missing_configured_internal_token_fails_closed[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_unimplemented_provider_rejected[sqlite-wechat]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_unimplemented_provider_rejected[sqlite-wecom]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_unimplemented_provider_rejected[sqlite-arbitrary-webhook]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_unimplemented_provider_rejected[postgres-wechat]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_unimplemented_provider_rejected[postgres-wecom]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_unimplemented_provider_rejected[postgres-arbitrary-webhook]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[sqlite-patch0]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[sqlite-patch1]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[sqlite-patch2]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[sqlite-patch3]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[sqlite-patch4]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[sqlite-patch5]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[postgres-patch0]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[postgres-patch1]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[postgres-patch2]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[postgres-patch3]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[postgres-patch4]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_invalid_envelope_has_safe_error[postgres-patch5]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_cannot_use_another_owners_account[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_cannot_use_another_owners_account[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_recipient_query_is_owned_and_paginated[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_recipient_query_is_owned_and_paginated[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_disconnect_retains_account_identity_and_history[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_disconnect_retains_account_identity_and_history[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_accounts_keep_distinct_same_name_identities[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_accounts_keep_distinct_same_name_identities[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_account_references_include_impact[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_account_references_include_impact[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_disconnected_account_cannot_be_used[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_disconnected_account_cannot_be_used[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_openapi_has_public_and_internal_contracts[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_openapi_has_public_and_internal_contracts[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[sqlite-patch0]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[sqlite-patch1]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[sqlite-patch2]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[sqlite-patch3]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[sqlite-patch4]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[postgres-patch0]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[postgres-patch1]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[postgres-patch2]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[postgres-patch3]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_envelope_type_and_size_validation[postgres-patch4]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_internal_target_validation_uses_authenticated_owner[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_internal_target_validation_uses_authenticated_owner[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_different_transport_id_cannot_duplicate_business_event[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_different_transport_id_cannot_duplicate_business_event[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_accounts_expose_avatar_state_and_reference_metadata[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_accounts_expose_avatar_state_and_reference_metadata[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_disconnect_impact_is_owned[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_api",
+        "test": "test_notification_disconnect_impact_is_owned[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_card_has_title_time_and_actual_event[sqlite-succeeded]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_card_has_title_time_and_actual_event[sqlite-failed]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_card_has_title_time_and_actual_event[sqlite-paused]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_card_has_title_time_and_actual_event[postgres-succeeded]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_card_has_title_time_and_actual_event[postgres-failed]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_card_has_title_time_and_actual_event[postgres-paused]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_full_body_is_split_without_losing_any_paragraph[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_full_body_is_split_without_losing_any_paragraph[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_summary_never_accidentally_sends_full_body[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_summary_never_accidentally_sends_full_body[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_failed_summary_sends_status_and_explicit_notice[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_failed_summary_sends_status_and_explicit_notice[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_renders_images_and_reports_as_native_parts[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_renders_images_and_reports_as_native_parts[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_oversized_artifact_does_not_drop_good_content[sqlite-image-10485760-large.png]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_oversized_artifact_does_not_drop_good_content[sqlite-file-31457280-large.pdf]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_oversized_artifact_does_not_drop_good_content[postgres-image-10485760-large.png]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_oversized_artifact_does_not_drop_good_content[postgres-file-31457280-large.pdf]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_protocol_blocks_are_not_exposed[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_protocol_blocks_are_not_exposed[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[sqlite-28671]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[sqlite-28672]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[sqlite-28673]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[sqlite-92160]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[postgres-28671]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[postgres-28672]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[postgres-28673]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_single_paragraph_escaping_and_card_budget[postgres-92160]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[sqlite--1-image-10485760]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[sqlite--1-file-31457280]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[sqlite-0-image-10485760]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[sqlite-0-file-31457280]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[postgres--1-image-10485760]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[postgres--1-file-31457280]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[postgres-0-image-10485760]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_artifact_within_limit_is_retained[postgres-0-file-31457280]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_empty_file_reports_reason_and_keeps_body[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_empty_file_reports_reason_and_keeps_body[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_empty_result_still_has_status_card[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_empty_result_still_has_status_card[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_pause_includes_pending_action_without_unfinished_answer[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_content",
+        "test": "test_notification_pause_includes_pending_action_without_unfinished_answer[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_existing_outbox_allows_only_one_concurrent_claim[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_existing_outbox_allows_only_one_concurrent_claim[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_expired_lease_fences_previous_worker[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_expired_lease_fences_previous_worker[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_existing_queue_stops_after_five_attempts[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_existing_queue_stops_after_five_attempts[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_part_receipt_survives_store_reinitialization[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_part_receipt_survives_store_reinitialization[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_disconnect_cannot_cascade_delete_sent_history[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_disconnect_cannot_cascade_delete_sent_history[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_disable_before_send_skips_queue_and_never_replays[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_disable_before_send_skips_queue_and_never_replays[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_permission_is_checked_before_each_part[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_permission_is_checked_before_each_part[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_failed_target_does_not_block_another_target[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_failed_target_does_not_block_another_target[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_retry_sends_only_failed_parts_and_preserves_content[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_retry_sends_only_failed_parts_and_preserves_content[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_sent_record_cannot_be_retried[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_delivery",
+        "test": "test_notification_sent_record_cannot_be_retried[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_fixture_starts_real_core[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_fixture_starts_real_core[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_summary_is_generated_once_for_two_targets[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_summary_is_generated_once_for_two_targets[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_summary_failure_and_retry_never_reruns_task[sqlite-502]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_summary_failure_and_retry_never_reruns_task[sqlite-408]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_summary_failure_and_retry_never_reruns_task[postgres-502]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_summary_failure_and_retry_never_reruns_task[postgres-408]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_full_content_does_not_call_summary_model[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_full_content_does_not_call_summary_model[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_long_summary_covers_tail_with_bounded_model_inputs[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_long_summary_covers_tail_with_bounded_model_inputs[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_delivery_retry_reuses_summary_after_core_restart[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_delivery_retry_reuses_summary_after_core_restart[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_failed_execution_preserves_failure[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_failed_execution_preserves_failure[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_foreign_history_and_retry_are_hidden[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_foreign_history_and_retry_are_hidden[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_pending_handoff_survives_core_restart[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_pending_handoff_survives_core_restart[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_lost_handoff_response_does_not_duplicate_delivery[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_e2e",
+        "test": "test_notification_e2e_lost_handoff_response_does_not_duplicate_delivery[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_protocol",
+        "test": "test_notification_sdk_timeout_and_stable_provider_uuid[card]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_protocol",
+        "test": "test_notification_sdk_timeout_and_stable_provider_uuid[image]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_protocol",
+        "test": "test_notification_sdk_timeout_and_stable_provider_uuid[file]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_protocol",
+        "test": "test_notification_heartbeat_renews_after_thirty_seconds_and_fences_loss",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_protocol",
+        "test": "test_notification_core_routes_are_in_central_permission_extraction",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_lost_response_reuses_platform_key[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_lost_response_reuses_platform_key[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_unknown_after_dedupe_window_requires_explicit_retry[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_unknown_after_dedupe_window_requires_explicit_retry[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_rate_limit_honors_retry_after[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_rate_limit_honors_retry_after[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_core_unavailable_defers_without_sending[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_core_unavailable_defers_without_sending[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_concurrent_retry_has_one_winner[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_concurrent_retry_has_one_winner[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_permanent_bad_artifact_does_not_block_later_file[sqlite]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_recovery",
+        "test": "test_notification_permanent_bad_artifact_does_not_block_later_file[postgres]",
+        "result": "failure"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_reply_regression",
+        "test": "test_notification_change_preserves_feishu_conversation_reply[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_reply_regression",
+        "test": "test_notification_change_preserves_feishu_conversation_reply[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_reply_regression",
+        "test": "test_notification_change_preserves_wechat_reply_context[sqlite]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.tests.notifications.test_notification_reply_regression",
+        "test": "test_notification_change_preserves_wechat_reply_context[postgres]",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.test_security.JsonCipherMasterKeyTest",
+        "test": "test_does_not_rewrite_unrecognized_invalid_key",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.test_security.JsonCipherMasterKeyTest",
+        "test": "test_new_key_is_created_with_binary_flag_when_available",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.test_security.JsonCipherMasterKeyTest",
+        "test": "test_recovers_legacy_windows_text_mode_key",
+        "result": "passed"
+      },
+      {
+        "suite": "backend.channel-gateway.test_security.JsonCipherMasterKeyTest",
+        "test": "test_waits_for_concurrent_master_key_writer",
+        "result": "passed"
+      }
+    ]
+  }
+}

@@ -8,6 +8,10 @@ class FeishuRuntimeError(RuntimeError):
     pass
 
 
+class FeishuSendRejectedError(FeishuRuntimeError):
+    """The SDK returned a definitive, non-retryable send rejection."""
+
+
 def workspace_card_expired(exc: Exception) -> bool:
     message = str(exc).casefold()
     return any(
@@ -62,6 +66,7 @@ class FeishuAppRegistration:
     owner_open_id: str
     owner_name: str
     tenant_key: str
+    avatar_url: str = ''
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +76,7 @@ class FeishuAppCredentials:
     provider_account_id: str
     provider_tenant_key: str
     display_name: str
+    avatar_url: str = ''
 
 
 class FeishuAddressFactory:

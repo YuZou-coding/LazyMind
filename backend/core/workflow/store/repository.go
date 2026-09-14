@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm/clause"
 	"lazymind/core/common"
 	"lazymind/core/common/orm"
+	"lazymind/core/notifications"
 	"lazymind/core/taskcenter"
 )
 
@@ -454,7 +455,13 @@ func (r *Repository) SetSessionStopped(ctx context.Context, owner, sessionID, co
 		return 0, err
 	}
 	request, _ := json.Marshal(map[string]any{"session_id": sessionID, "stopped": stop})
-	command, _, err := r.Command(ctx, owner, sessionID, commandID, "workflow.v1", request, func(tx *gorm.DB) (int, json.RawMessage, error) {
+	// Stop/resume only writes through tx, so both databases can commit the
+	// session, interrupted attempts, task, notification and command atomically.
+	command, _, err := r.commandTransactional(ctx, owner, sessionID, commandID, "workflow.v1", request, func(tx *gorm.DB) (int, json.RawMessage, error) {
+		if err := tx.Model(&orm.WorkflowSession{}).Where("id = ? AND create_user_id = ?", sessionID, owner).
+			UpdateColumn("updated_at", time.Now().UTC()).Error; err != nil {
+			return 0, nil, err
+		}
 		var session orm.WorkflowSession
 		if err := tx.Where("id = ?", sessionID).First(&session).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -490,6 +497,9 @@ func (r *Repository) SetSessionStopped(ctx context.Context, owner, sessionID, co
 		if err := tx.Model(&orm.WorkflowSession{}).Where("id = ?", sessionID).Updates(map[string]any{
 			"status": status, "state_version": version, "updated_at": time.Now().UTC(),
 		}).Error; err != nil {
+			return 0, nil, err
+		}
+		if err := taskcenter.SyncWorkflowStatus(ctx, tx, sessionID, status); err != nil {
 			return 0, nil, err
 		}
 		response, _ := json.Marshal(map[string]any{"session_id": sessionID, "status": status, "state_version": version})
@@ -940,7 +950,7 @@ func (r *Repository) commandTransactional(ctx context.Context, owner, sessionID,
 	var committedEvent *Event
 	hash := requestHash(request)
 	created := false
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := notifications.Transact(ctx, r.db, func(tx *gorm.DB) error {
 		if err := tx.Where("command_id = ?", commandID).First(&result).Error; err == nil {
 			if result.OwnerUserID != owner {
 				return ErrPermissionDenied

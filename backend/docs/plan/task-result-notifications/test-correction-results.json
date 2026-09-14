@@ -1,0 +1,449 @@
+{
+  "date": "2026-09-10",
+  "authorization": "批准，先进行修正",
+  "phase": "approved_test_corrections_complete",
+  "production_files_changed_in_this_correction": false,
+  "test_files": {
+    "backend/core/notification_api_test.go": {
+      "sha256": "4e2ffbab67bbf3278a0360782a0f2cf55cde4e96cdb1dbcbd2cf0851a0a18fca"
+    },
+    "backend/core/scheduler/notification_lifecycle_test.go": {
+      "sha256": "2a2add07ae0ff08529b09c4ad952362bf6da0564496cb6d7d005db19b5544a7d"
+    },
+    "backend/core/scheduler/automation_test.go": {
+      "sha256": "601c62d11d8eba44c6b335c097be373b8cd2d579912e5ad80e0dd5426980b9df"
+    }
+  },
+  "verification": {
+    "sqlite": {
+      "command": "go test . ./scheduler -run '^TestNotification|^TestOpenAPISpecCoversAllRegisteredRoutes$' -count=1 -json",
+      "cwd": "backend/core",
+      "counts": {
+        "pass": 29,
+        "fail": 0,
+        "skip": 0
+      },
+      "cases": [
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDefaultsAreSafeAndPersisted",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDefaultsOnlyApplyToNewSchedulesAndReset",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRuleRetainsDisabledSelectionsAndMultipleTargets",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationScheduledAndDependencyDispatchPersistSuccessEvents",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerDoesNotTurnPausedRunIntoSuccess",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerPreservesCancellationAndFailure",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerCannotSucceedWhenOutputWriteFails",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerPreservesWholeVisibleAnswer",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerKeepsVisibleArtifacts",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRejectsInvalidRules",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGlobalDefaultsMustKeepOneEvent",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationConcurrentRuleWritersHaveOneWinner",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGatewayValidationFailsClosed",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationUnsupportedProviderDoesNotBecomeSendable",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationForeignScheduleAndTaskAreHidden",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationPauseEpisodesAndExecutionSnapshot",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationNonEventsDoNotNotify",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationTransactionRollbackDoesNotPublishEvent",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDisableImpactRequiresFreshConfirmation",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationInternalAuthorizationRejectsMissingCredentials",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRoutesHaveOpenAPIContracts",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationLegacyEditDoesNotClearRule",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationCreateAndBatchPersistExplicitRules",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationFailureIsDeduplicatedAndSafe",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDisabledEventDoesNotCreateHistory",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationEventInsertFailureRollsBackTaskStatus",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGlobalDisableConfirmAndReenableRetainConfiguration",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationAnonymousSettingsCannotBecomeDefaultUserSettings",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestOpenAPISpecCoversAllRegisteredRoutes",
+          "result": "pass"
+        }
+      ],
+      "package_results": [
+        {
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "result": "pass"
+        }
+      ]
+    },
+    "postgres": {
+      "command": "TEST_DB_DRIVER=postgres TEST_DB_DSN=postgresql://postgres@127.0.0.1:32768/postgres go test . ./scheduler -run '^TestNotification|^TestOpenAPISpecCoversAllRegisteredRoutes$' -count=1 -json",
+      "cwd": "backend/core",
+      "counts": {
+        "pass": 29,
+        "fail": 0,
+        "skip": 0
+      },
+      "cases": [
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationScheduledAndDependencyDispatchPersistSuccessEvents",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerDoesNotTurnPausedRunIntoSuccess",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerPreservesCancellationAndFailure",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerCannotSucceedWhenOutputWriteFails",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerPreservesWholeVisibleAnswer",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestNotificationFinalizerKeepsVisibleArtifacts",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDefaultsAreSafeAndPersisted",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDefaultsOnlyApplyToNewSchedulesAndReset",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRuleRetainsDisabledSelectionsAndMultipleTargets",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRejectsInvalidRules",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGlobalDefaultsMustKeepOneEvent",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationConcurrentRuleWritersHaveOneWinner",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGatewayValidationFailsClosed",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationUnsupportedProviderDoesNotBecomeSendable",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationForeignScheduleAndTaskAreHidden",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationPauseEpisodesAndExecutionSnapshot",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationNonEventsDoNotNotify",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationTransactionRollbackDoesNotPublishEvent",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDisableImpactRequiresFreshConfirmation",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationInternalAuthorizationRejectsMissingCredentials",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationRoutesHaveOpenAPIContracts",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationLegacyEditDoesNotClearRule",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationCreateAndBatchPersistExplicitRules",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationFailureIsDeduplicatedAndSafe",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationDisabledEventDoesNotCreateHistory",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationEventInsertFailureRollsBackTaskStatus",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationGlobalDisableConfirmAndReenableRetainConfiguration",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestNotificationAnonymousSettingsCannotBecomeDefaultUserSettings",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "test": "TestOpenAPISpecCoversAllRegisteredRoutes",
+          "result": "pass"
+        }
+      ],
+      "package_results": [
+        {
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core",
+          "result": "pass"
+        }
+      ]
+    },
+    "regression": {
+      "command": "go test ./taskcenter ./scheduler -run '^Test(UpdateTask|CreateTask|CreateSchedule|RunNow|Fire|Finalize|Dependency)' -count=1 -json",
+      "cwd": "backend/core",
+      "counts": {
+        "pass": 14,
+        "fail": 0,
+        "skip": 0
+      },
+      "cases": [
+        {
+          "package": "lazymind/core/taskcenter",
+          "test": "TestCreateTask_And_CancelTask",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/taskcenter",
+          "test": "TestUpdateTaskFailurePersistsReasonAndTerminalState",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestDependencyCollectionSnapshotsActualOutputsPerRun",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestDependencyCollectionWaitsForSameTickActualTask",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestDependencyWindowStartUsesLastSuccessfulNonDeletedRun",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestDependencyCollectionMaterializesHistoricalChatOutput",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestFinalizeTaskOutputStoresPlainChatAnswer",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestFinalizeTaskOutputStoresEmptyResultFailureReason",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestCreateTaskConversationPersistsHighThinkingDepth",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestFireSchedulesSkipsPausedSchedulesAndMovesNextRunForward",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestDependencyClaimAttemptFencesStaleOwner",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestDependencyClaimHeartbeatKeepsActiveClaimFresh",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestCreateScheduleRejectsBlankName",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "test": "TestFireOne_OptimisticLock",
+          "result": "pass"
+        }
+      ],
+      "package_results": [
+        {
+          "package": "lazymind/core/taskcenter",
+          "result": "pass"
+        },
+        {
+          "package": "lazymind/core/scheduler",
+          "result": "pass"
+        }
+      ]
+    }
+  },
+  "other_11_approved_test_files_unchanged": true,
+  "formatting_and_diff_check": "passed",
+  "not_retested": [
+    "Gateway and end-to-end delivery",
+    "Known v0.3 SQLite aggregate migration failure",
+    "Live Feishu delivery"
+  ]
+}

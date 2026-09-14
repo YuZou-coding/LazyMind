@@ -16,6 +16,7 @@ import (
 
 	"lazymind/core/common"
 	"lazymind/core/common/orm"
+	"lazymind/core/notifications"
 	"lazymind/core/store"
 )
 
@@ -48,7 +49,12 @@ func CreateTask(ctx context.Context, db *gorm.DB, t *orm.TaskCenterTask) error {
 		t.CreatedAt = now
 	}
 	t.UpdatedAt = now
-	return db.WithContext(ctx).Create(t).Error
+	return notifications.Transact(ctx, db, func(tx *gorm.DB) error {
+		if err := tx.Create(t).Error; err != nil {
+			return err
+		}
+		return notifications.Snapshot(tx, t)
+	})
 }
 
 // GetTask returns a TaskCenterTask by ID, or nil if not found.
@@ -62,32 +68,51 @@ func GetTask(ctx context.Context, db *gorm.DB, id string) (*orm.TaskCenterTask, 
 
 // UpdateTaskStatus updates status and optionally finished_at.
 func UpdateTaskStatus(ctx context.Context, db *gorm.DB, id, status string) error {
-	updates := map[string]any{
-		"status":     status,
-		"updated_at": time.Now().UTC(),
-	}
-	if isTerminal(status) {
-		now := time.Now().UTC()
-		updates["finished_at"] = now
-	}
-	return db.WithContext(ctx).Model(&orm.TaskCenterTask{}).
-		Where("id = ? AND archived_at IS NULL AND status NOT IN ('canceled')", id).
-		Updates(updates).Error
+	return transitionTask(ctx, db, id, status, "")
 }
 
-// UpdateTaskFailure persists a terminal task failure together with a user-facing reason.
+// UpdateTaskFailure persists a terminal task failure and its notification atomically.
 func UpdateTaskFailure(ctx context.Context, db *gorm.DB, id, reason string) error {
-	var task orm.TaskCenterTask
-	if err := db.WithContext(ctx).Select("id", "status", "progress_json").Where("id = ?", id).First(&task).Error; err != nil {
-		return err
-	}
-	if isTerminal(task.Status) && task.Status != "failed" {
-		return nil
-	}
-	now := time.Now().UTC()
-	return db.WithContext(ctx).Model(&orm.TaskCenterTask{}).
-		Where("id = ? AND archived_at IS NULL AND status NOT IN ('succeeded','skipped','canceled')", id).
-		Updates(map[string]any{"status": "failed", "progress_json": progressWithFailureReason(task.ProgressJSON, reason), "finished_at": now, "updated_at": now}).Error
+	return transitionTask(ctx, db, id, "failed", reason)
+}
+
+func transitionTask(ctx context.Context, db *gorm.DB, id, status, reason string) error {
+	return notifications.Transact(ctx, db, func(tx *gorm.DB) error {
+		// Acquire a row write lock before reading the old state. This works with
+		// PostgreSQL row locks and SQLite's single writer, including repeated pauses.
+		locked := tx.Model(&orm.TaskCenterTask{}).Where("id = ? AND archived_at IS NULL", id).UpdateColumn("updated_at", time.Now().UTC())
+		if locked.Error != nil {
+			return locked.Error
+		}
+		if locked.RowsAffected == 0 {
+			return nil
+		}
+		var task orm.TaskCenterTask
+		if err := tx.First(&task, "id = ?", id).Error; err != nil {
+			return err
+		}
+		if isTerminal(task.Status) {
+			return nil
+		}
+		previous := task.Status
+		task.Status = status
+		task.UpdatedAt = time.Now().UTC()
+		changes := map[string]any{"status": status, "updated_at": task.UpdatedAt}
+		if isTerminal(status) {
+			task.FinishedAt = &task.UpdatedAt
+			changes["finished_at"] = task.FinishedAt
+		} else {
+			changes["finished_at"] = nil
+		}
+		if reason != "" {
+			task.ProgressJSON = progressWithFailureReason(task.ProgressJSON, reason)
+			changes["progress_json"] = task.ProgressJSON
+		}
+		if err := tx.Model(&task).Updates(changes).Error; err != nil {
+			return err
+		}
+		return notifications.RecordTransition(tx, task, previous)
+	})
 }
 
 func progressWithFailureReason(progress orm.RawJSON, reason string) orm.RawJSON {
@@ -111,23 +136,24 @@ func progressWithFailureReason(progress orm.RawJSON, reason string) orm.RawJSON 
 // UpdateTaskStatusBySession updates the TaskCenter record whose plugin_session_id matches.  // workflow-naming: persistence
 // Used by the plugin EventLoop to sync task status when a session completes or fails.
 func UpdateTaskStatusBySession(ctx context.Context, db *gorm.DB, sessionID, status string) error {
-	updates := map[string]any{
-		"status":     status,
-		"updated_at": time.Now().UTC(),
-	}
-	if isTerminal(status) {
-		now := time.Now().UTC()
-		updates["finished_at"] = now
-	}
-	return db.WithContext(ctx).Model(&orm.TaskCenterTask{}).
-		Where("plugin_session_id = ? AND archived_at IS NULL AND status NOT IN ('succeeded','failed','canceled')", sessionID). // workflow-naming: persistence
-		Updates(updates).Error
+	return notifications.Transact(ctx, db, func(tx *gorm.DB) error {
+		var tasks []orm.TaskCenterTask
+		if err := tx.Where("plugin_session_id = ? AND archived_at IS NULL", sessionID).Find(&tasks).Error; err != nil {
+			return err
+		}
+		for _, task := range tasks {
+			if err := UpdateTaskStatus(ctx, tx, task.ID, status); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
-// CancelTask marks a task as canceled if it is still pending or running.
+// CancelTask also terminates recoverable waits; late callbacks cannot revive it.
 func CancelTask(ctx context.Context, db *gorm.DB, userID, id string) error {
 	return db.WithContext(ctx).Model(&orm.TaskCenterTask{}).
-		Where("id = ? AND user_id = ? AND status IN ('pending','running')", id, userID).
+		Where("id = ? AND user_id = ? AND status IN ('pending','running','waiting','waiting_inputs')", id, userID).
 		Updates(map[string]any{
 			"status":      "canceled",
 			"finished_at": time.Now().UTC(),

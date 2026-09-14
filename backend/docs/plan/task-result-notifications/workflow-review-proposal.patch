@@ -1,0 +1,27 @@
+--- a/backend/core/taskcenter/workflow_task_test.go
++++ b/backend/core/taskcenter/workflow_task_test.go
+@@ -129,7 +129,7 @@
+ 	for _, sample := range []struct{ task, workflow, want string }{
+ 		{"succeeded", "waiting", "waiting"}, {"succeeded", "active", "running"},
+ 		{"running", "completed", "succeeded"}, {"running", "failed", "failed"},
+-		{"running", "stopped", "canceled"}, {"canceled", "active", "canceled"},
++		{"running", "stopped", "waiting"}, {"canceled", "active", "canceled"},
+ 	} {
+ 		t.Run(sample.task+"_"+sample.workflow, func(t *testing.T) {
+ 			db := orm.MigrateTestDB(t, &orm.TaskCenterTask{}, &orm.WorkflowSession{})
+--- a/backend/core/migrate/mode_test.go
++++ b/backend/core/migrate/mode_test.go
+@@ -102,8 +102,11 @@
+ 		v03.Aggregate == nil || v03.Aggregate.Version != 20260805000000 {
+ 		t.Fatalf("unexpected v0_3 mode: %#v", v03)
+ 	}
+-	if len(v03.Dev) != 66 {
+-		t.Fatalf("v0_3 dev migration count=%d, want 66", len(v03.Dev))
++	if len(v03.Dev) != 67 {
++		t.Fatalf("v0_3 dev migration count=%d, want 67", len(v03.Dev))
++	}
++	if !containsMigrationFileVersion(v03.Dev, 20260910080428) {
++		t.Fatal("v0_3 dev migrations are missing task notifications")
+ 	}
+ 	if !containsMigrationFileVersion(v03.Dev, 20260908090000) {
+ 		t.Fatal("v0_3 dev migrations are missing vocabulary Anki tables")

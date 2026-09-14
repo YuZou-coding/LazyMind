@@ -125,6 +125,11 @@ def _translate(statement: str) -> str:
     sql = _FOR_LOCK_RE.sub('', sql)
     sql = _RETURNING_ALIAS_RE.sub('RETURNING *', sql)
     sql = re.sub(
+        r'CURRENT_TIMESTAMP\s*\+\s*make_interval\(secs\s*=>\s*\?\)',
+        "datetime(CURRENT_TIMESTAMP, '+' || ? || ' seconds')",
+        sql, flags=re.IGNORECASE,
+    )
+    sql = re.sub(
         r"CURRENT_TIMESTAMP\s*-\s*INTERVAL\s*'60 seconds'",
         "datetime(CURRENT_TIMESTAMP, '-60 seconds')",
         sql,
@@ -476,6 +481,7 @@ class SQLiteGatewayStore(GatewayStore):
             for statement in indexes:
                 connection.execute(statement)
             self._migrate_legacy_outbox(connection)
+            self.initialize_notifications(connection)
 
     @staticmethod
     def _migrate_columns(connection: _SQLiteConnection) -> None:
