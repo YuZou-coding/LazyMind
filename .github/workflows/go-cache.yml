@@ -28,12 +28,12 @@ concurrency:
 jobs:
   warm:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Restore shared Go cache
         id: go
         uses: ./.github/actions/setup-go-ci
@@ -46,7 +46,7 @@ jobs:
       # eviction. Other workflows may still save their own branch-scoped caches.
       - name: Save main-branch Go snapshot
         if: steps.go.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             ${{ steps.go.outputs.build-cache }}

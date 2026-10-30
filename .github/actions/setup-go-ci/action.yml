@@ -20,7 +20,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: ${{ inputs.go-version }}
         cache: false
@@ -40,7 +40,7 @@ runs:
       # A new namespace starts cold. Only the trusted main-branch producer fills
       # it after merge; a PR never uploads a large Go snapshot on a cache miss.
       id: restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       env:
         SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
       with:

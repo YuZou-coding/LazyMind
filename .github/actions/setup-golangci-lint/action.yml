@@ -18,7 +18,7 @@ runs:
         printf 'directory=%s/golangci-lint/2.12.2/linux-amd64\n' "$RUNNER_TOOL_CACHE" >> "$GITHUB_OUTPUT"
     - name: Restore golangci-lint binary
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ steps.paths.outputs.directory }}
         key: golangci-lint-v2.12.2-linux-amd64-8df580d2670fed8fa984aac0507099af8df275e665215f5c7a2ae3943893a553
