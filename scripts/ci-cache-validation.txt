@@ -1,0 +1,2 @@
+Temporary validation branch: verify that a pull request restores the Go snapshot produced on its master target branch.
+This branch is for CI validation and will not be merged.
