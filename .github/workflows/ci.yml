@@ -15,17 +15,21 @@ concurrency:
   group: ${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  # Checkout uses the tested PR merge commit; its first parent is the actual target.
+  DIFF_COVERAGE_BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || 'origin/main' }}
+
 jobs:
   verify-skill-lock:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.25.11'
           cache-dependency-path: backend/core/go.sum
@@ -74,46 +78,45 @@ jobs:
             "${verify_args[@]}"
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.11'
-          cache-dependency-path: |
-            backend/core/go.sum
-            backend/scan-control-plane/go.sum
-            backend/file-watcher/go.sum
-            local/local-proxy/go.sum
-            local/local-runtime-manager/go.sum
-            local/lazymind-cli/go.sum
-            tests/backend/core/go.sum
+        uses: ./.github/actions/setup-go-ci
+
+      - name: Set up golangci-lint
+        id: golangci-lint
+        uses: ./.github/actions/setup-golangci-lint
+
+      - name: Test PostgreSQL migration result checks
+        run: python3 -m unittest discover -s scripts/tests -p test_check_postgres_migrations.py
 
       - name: Lint
+        env:
+          GOLANGCI_LINT: ${{ steps.golangci-lint.outputs.executable }}
         run: make lint
 
   doc_check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -122,16 +125,16 @@ jobs:
 
   test-frontend:
     needs: [lint, doc_check]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
 
@@ -150,7 +153,7 @@ jobs:
           npx c8 --reporter=html --reporter=cobertura npm test
 
       - name: Upload HTML coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-frontend
           path: tests/frontend/coverage
@@ -163,7 +166,7 @@ jobs:
   test-frontend-shards:
     needs: [lint, doc_check]
     name: Test frontend application (shard ${{ matrix.shard }}/4)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -173,11 +176,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
         with:
           version: '10.0.0'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: pnpm
@@ -197,7 +200,7 @@ jobs:
     needs: [test-frontend-shards]
     if: ${{ always() }}
     name: Test Workflow Panel boundaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -214,7 +217,7 @@ jobs:
   test-local-runtime:
     needs: [lint, doc_check]
     name: Test local runtime (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -223,19 +226,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.25.11'
           cache-dependency-path: |
             local/local-proxy/go.sum
             local/local-runtime-manager/go.sum
             local/lazymind-cli/go.sum
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         if: runner.os == 'Linux'
         with:
           version: '10.0.0'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: runner.os == 'Linux'
         with:
           node-version: '24'
@@ -267,7 +270,7 @@ jobs:
           exit $testExitCode
       - name: Upload Windows Go diagnostics
         if: always() && runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: go-cli-diagnostics-windows
           path: ${{ runner.temp }}/go-cli-diagnostics
@@ -285,7 +288,7 @@ jobs:
   test-desktop-shell:
     needs: [lint, doc_check]
     name: Test desktop shell (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -294,11 +297,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         if: runner.os == 'Windows'
         with:
           go-version: '1.25.11'
@@ -324,16 +330,16 @@ jobs:
 
   test-auth-service:
     needs: [lint, doc_check]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -350,7 +356,7 @@ jobs:
           coverage xml -o coverage-auth.xml
 
       - name: Upload HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-auth
           path: htmlcov-auth
@@ -358,13 +364,15 @@ jobs:
       - name: Check total coverage ≥10%
         run: coverage report --include=backend/auth-service/* --fail-under=10
 
-      - name: Check incremental coverage ≥0%
-        run: diff-cover coverage-auth.xml --compare-branch=origin/main --fail-under=0
+      - name: Check incremental coverage ≥80%
+        run: diff-cover coverage-auth.xml --compare-branch="$DIFF_COVERAGE_BASE" --fail-under=80
 
   test-backend-core:
     needs: [lint, doc_check]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      MIGRATION_TEST_POSTGRES_DSN: postgres://root:test-password@127.0.0.1:5432/postgres?sslmode=disable
     permissions:
       contents: read
     services:
@@ -382,31 +390,35 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.11'
-          cache-dependency-path: |
-            backend/core/go.sum
-            tests/backend/core/go.sum
+      - uses: ./.github/actions/setup-go-ci
 
       - name: Verify migration and target-upgrade paths
-        env:
-          MIGRATION_TEST_POSTGRES_DSN: postgres://root:test-password@127.0.0.1:5432/postgres?sslmode=disable
         run: bash scripts/test_migration_upgrade.sh
 
       - name: Test backend core (SQLite) with coverage
-        run: cd backend/core && go test ./... -v -timeout 40m -coverprofile=coverage-core.out
+        run: |
+          set -o pipefail
+          cd backend/core
+          go test ./... -json -timeout 40m -coverprofile=coverage-core.out |
+            tee core-sqlite-tests.jsonl | jq -j 'select(.Action == "output") | .Output'
 
       - name: Test backend core (PostgreSQL)
         env:
           TEST_DB_DRIVER: postgres
           TEST_DB_DSN: postgres://root:test-password@127.0.0.1:5432/postgres?sslmode=disable
         # Match SQLite instrumentation to reuse database-independent test results.
-        run: cd backend/core && go test ./... -v -timeout 40m -cover
+        run: |
+          set -o pipefail
+          cd backend/core
+          go test ./... -json -timeout 40m -cover |
+            tee core-postgres-tests.jsonl | jq -j 'select(.Action == "output") | .Output'
+
+      - name: Require PostgreSQL migration coverage
+        run: python3 scripts/check_postgres_migrations.py backend/core/core-postgres-tests.jsonl
 
       - name: Test backend core integration module
         run: cd tests/backend/core && go mod tidy && go test ./... -v -timeout 40m
@@ -426,7 +438,7 @@ jobs:
           gocover-cobertura < coverage-core.out > coverage-core.xml
 
       - name: Upload Go coverage HTML
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-core
           path: backend/core/coverage-core.html
@@ -444,24 +456,24 @@ jobs:
       - name: Install diff-cover
         run: pip install diff-cover
 
-      - name: Check incremental coverage ≥0%
+      - name: Check incremental coverage ≥80%
         run: |
           cd backend/core
-          diff-cover coverage-core.xml --compare-branch=origin/main --fail-under=0
+          diff-cover coverage-core.xml --compare-branch="$DIFF_COVERAGE_BASE" --fail-under=80
 
   test-evo-cli:
     needs: [lint, doc_check]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
@@ -482,7 +494,7 @@ jobs:
           coverage xml -o coverage-evo.xml
 
       - name: Upload HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-evo
           path: htmlcov-evo
@@ -490,13 +502,13 @@ jobs:
       - name: Check total coverage ≥10%
         run: coverage report --include=evo/* --fail-under=10
 
-      - name: Check incremental coverage ≥0%
-        run: diff-cover coverage-evo.xml --compare-branch=origin/main --fail-under=0
+      - name: Check incremental coverage ≥80%
+        run: diff-cover coverage-evo.xml --compare-branch="$DIFF_COVERAGE_BASE" --fail-under=80
 
   test-algorithm:
     needs: [lint, doc_check]
     name: Test algorithm (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -508,12 +520,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         id: python
         with:
           python-version: '3.11'
@@ -528,7 +540,7 @@ jobs:
         run: echo "revision=$(git rev-parse HEAD:algorithm/lazyllm)" >> "$GITHUB_OUTPUT"
 
       - name: Cache LazyLLM wheel
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: lazyllm-wheel
         with:
           path: ${{ runner.temp }}/lazyllm-wheels
@@ -609,7 +621,7 @@ jobs:
               subprocess.run([sys.executable, '-m', 'coverage', *arguments], check=True)
 
       - name: Upload HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-algorithm-${{ matrix.os }}
           path: htmlcov-algorithm
@@ -617,12 +629,12 @@ jobs:
       - name: Check total coverage ≥10%
         run: coverage report --include=algorithm/* --fail-under=10
 
-      - name: Check incremental coverage ≥0%
-        run: diff-cover coverage-algorithm.xml --compare-branch=origin/main --fail-under=0
+      - name: Check incremental coverage ≥80%
+        run: diff-cover coverage-algorithm.xml --compare-branch="$DIFF_COVERAGE_BASE" --fail-under=80
   test-channel-gateway:
     name: Test channel gateway (${{ matrix.driver }})
     needs: [lint, doc_check]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -640,8 +652,8 @@ jobs:
           --health-cmd "pg_isready -U root -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with: {python-version: '3.11'}
       - name: Install gateway test dependencies
         run: pip install -r tests/backend/channel-gateway/requirements-test.txt
